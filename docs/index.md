@@ -1,23 +1,11 @@
-# parsedmarc-go documentation - High-performance DMARC report analyzer
+# parsedmarc-go - High-performance DMARC report analyzer
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/domainaware/parsedmarc-go)
 [![Go Version](https://img.shields.io/badge/go-1.21+-blue)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](https://github.com/domainaware/parsedmarc-go/blob/master/LICENSE)
 
-:::{note}
-**parsedmarc-go** is a high-performance Go implementation of the original parsedmarc Python project.
-It offers significant performance improvements, simplified deployment, and native ClickHouse integration.
-:::
-
-```{image} _static/screenshots/dmarc-clickhouse-dashboard.png
-:align: center
-:alt: A screenshot of DMARC dashboard in Grafana with ClickHouse
-:scale: 50 %
-:target: _static/screenshots/dmarc-clickhouse-dashboard.png
-```
-
-`parsedmarc-go` is a Go application for parsing and analyzing DMARC reports with native ClickHouse storage and Prometheus metrics.
-It serves as a modern, high-performance alternative to commercial DMARC report processing services.
+`parsedmarc-go` is a high-performance Go application for parsing and analyzing DMARC reports with native ClickHouse storage and Grafana visualization.
+It provides enterprise-grade DMARC report processing with superior performance and simplified deployment.
 
 ## Key Features
 
@@ -86,7 +74,6 @@ monitoring
 api
 dmarc
 contributing
-migration
 ```
 
 ## Support
