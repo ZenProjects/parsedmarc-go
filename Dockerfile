@@ -1,35 +1,71 @@
-ARG BASE_IMAGE=python:3.9-slim
-ARG USERNAME=parsedmarc
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
+# Dockerfile multi-stage pour parsedmarc-go avec Alpine Linux
 
-## build
+# Stage 1: Builder
+FROM golang:1.23-alpine AS builder
 
-FROM $BASE_IMAGE AS build
+# Installer les dépendances de build nécessaires
+RUN apk add --no-cache git ca-certificates tzdata
 
+# Créer un utilisateur non-root pour la sécurité
+RUN adduser -D -g '' appuser
+
+# Définir le répertoire de travail
+WORKDIR /build
+
+# Copier les fichiers de dépendances Go
+COPY go.mod go.sum ./
+
+# Télécharger les dépendances
+RUN go mod download
+
+# Copier le code source
+COPY . .
+
+# Construire l'application avec optimisations
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -a -installsuffix cgo \
+    -ldflags='-w -s -extldflags "-static"' \
+    -o parsedmarc-go \
+    ./cmd/parsedmarc-go
+
+# Stage 2: Image finale
+FROM alpine:3.19
+
+# Installer les certificats CA et timezone data
+RUN apk --no-cache add ca-certificates tzdata
+
+# Créer un utilisateur non-root
+RUN adduser -D -g '' appuser
+
+# Créer les répertoires nécessaires
+RUN mkdir -p /app/reports /app/config
+
+# Copier l'utilisateur depuis le builder
+COPY --from=builder /etc/passwd /etc/passwd
+
+# Copier le binaire compilé
+COPY --from=builder /build/parsedmarc-go /app/parsedmarc-go
+
+# Copier les fichiers de configuration exemple
+COPY --from=builder /build/config.yaml.example /app/config.yaml.example
+
+# Définir les permissions
+RUN chown -R appuser:appuser /app
+
+# Changer vers l'utilisateur non-root
+USER appuser
+
+# Définir le répertoire de travail
 WORKDIR /app
 
-RUN pip install hatch
+# Exposer le port par défaut (ajustez selon votre configuration)
+EXPOSE 8080
 
-COPY parsedmarc/ parsedmarc/
-COPY README.md pyproject.toml ./
+# Définir les volumes pour la configuration et les rapports
+VOLUME ["/app/config", "/app/reports"]
 
-RUN hatch build
+# Point d'entrée
+ENTRYPOINT ["./parsedmarc-go"]
 
-## image
-
-FROM $BASE_IMAGE
-ARG USERNAME
-ARG USER_UID
-ARG USER_GID
-
-COPY --from=build /app/dist/*.whl /tmp/dist/
-RUN set -ex; \
-    groupadd --gid ${USER_GID} ${USERNAME}; \
-    useradd --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME}; \
-    pip install /tmp/dist/*.whl; \
-    rm -rf /tmp/dist
-
-USER $USERNAME
-
-ENTRYPOINT ["parsedmarc"]
+# Commande par défaut
+CMD ["-config", "/app/config/config.yaml"]

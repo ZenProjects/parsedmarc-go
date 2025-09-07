@@ -1,0 +1,84 @@
+# Configuration example for parsedmarc-go
+
+# Logging configuration
+logging:
+  level: info          # debug, info, warn, error
+  format: json         # json or console
+  output_path: stdout  # stdout or file path
+
+# Parser configuration
+parser:
+  offline: false                           # Don't make online queries
+  ip_db_path: ""                          # Path to MaxMind GeoIP database
+  reverse_dns_map_path: ""                # Path to reverse DNS map file
+  reverse_dns_map_url: ""                 # URL to reverse DNS map file
+  always_use_local_files: false          # Don't download files
+  nameservers:                            # DNS nameservers to use
+    - "1.1.1.1"
+    - "1.0.0.1"
+  dns_timeout: 2                          # DNS timeout in seconds
+
+# ClickHouse storage configuration
+clickhouse:
+  enabled: false                           # Enable ClickHouse storage
+  host: localhost                         # ClickHouse host
+  port: 9000                             # ClickHouse port
+  database: dmarc                        # Database name
+  username: default                       # Username
+  password: ""                           # Password
+  tls: false                             # Use TLS connection
+  skip_verify: false                     # Skip TLS certificate verification
+
+# IMAP configuration for fetching reports from email
+imap:
+  enabled: false                          # Enable IMAP client
+  host: ""                               # IMAP server hostname
+  port: 993                              # IMAP server port (993 for TLS, 143 for plain)
+  username: ""                           # IMAP username
+  password: ""                           # IMAP password
+  tls: true                              # Use TLS/SSL connection
+  skip_verify: false                     # Skip TLS certificate verification
+  mailbox: "INBOX"                       # Mailbox to monitor
+  archive_mailbox: "DMARC-Archive"       # Mailbox to move processed emails
+  delete_processed: false                # Delete processed emails instead of archiving
+  check_interval: 300                    # Check interval in seconds (5 minutes)
+
+# HTTP server configuration for receiving reports
+http:
+  enabled: false                          # Enable HTTP server
+  host: "0.0.0.0"                        # Host to bind to
+  port: 8080                             # Port to listen on
+  tls: false                             # Enable TLS/HTTPS
+  cert_file: ""                          # TLS certificate file path (required if tls: true)
+  key_file: ""                           # TLS private key file path (required if tls: true)
+  rate_limit: 60                         # Requests per minute per IP
+  rate_burst: 10                         # Burst capacity for rate limiter
+  max_upload_size: 52428800              # Max upload size in bytes (50MB)
+
+# SMTP configuration for sending email reports
+smtp:
+  enabled: false                          # Enable SMTP email output
+  host: ""                               # SMTP server hostname
+  port: 25                               # SMTP server port (25, 465, 587)
+  ssl: false                             # Use SSL/TLS connection
+  username: ""                           # SMTP username (if required)
+  password: ""                           # SMTP password (if required)
+  from: "parsedmarc@example.com"         # Email "From" address
+  to:                                    # List of recipient email addresses
+    - "admin@example.com"
+  subject: "parsedmarc report"           # Email subject
+  attachment: ""                         # Optional ZIP attachment filename
+  message: "DMARC report attached"       # Email body text
+
+# Kafka configuration for streaming reports
+kafka:
+  enabled: false                          # Enable Kafka output
+  hosts:                                 # List of Kafka broker hosts
+    - "localhost:9092"
+  username: ""                           # Kafka username (if using SASL)
+  password: ""                           # Kafka password (if using SASL)
+  ssl: true                              # Use SSL/TLS connection
+  skip_verify: false                     # Skip TLS certificate verification
+  aggregate_topic: "dmarc.aggregate"     # Topic for aggregate reports
+  forensic_topic: "dmarc.forensic"       # Topic for forensic reports
+  smtp_tls_topic: "dmarc.smtp_tls"       # Topic for SMTP TLS reports
