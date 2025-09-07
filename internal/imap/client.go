@@ -4,15 +4,16 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"mime"
 	"strings"
 	"time"
 
-	"github.com/domainaware/parsedmarc-go/internal/config"
-	"github.com/domainaware/parsedmarc-go/internal/parser"
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 	"github.com/emersion/go-message/mail"
 	"go.uber.org/zap"
+	"parsedmarc-go/internal/config"
+	"parsedmarc-go/internal/parser"
 )
 
 // Client represents an IMAP client for fetching DMARC reports
@@ -295,10 +296,13 @@ func (c *Client) processMessage(seqNum uint32) error {
 
 // processEmailPart processes an individual email part
 func (c *Client) processEmailPart(part *mail.Part) error {
-	contentType := part.Header.Get("ContentType")
+	contentType, params, err := mime.ParseMediaType(part.Header.Get("Content-Type"))
+	if err != nil {
+		return fmt.Errorf("failed to parse content type: %w", err)
+	}
 
-	if contentType != "" {
-		return fmt.Errorf("unsupported content type: %s", contentType)
+	if contentType == "" {
+		return fmt.Errorf("missing content type")
 	}
 
 	// Check if this part contains a DMARC report
