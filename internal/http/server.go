@@ -13,35 +13,35 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/time/rate"
-	
-	"github.com/domainaware/parsedmarc-go/internal/config"
-	"github.com/domainaware/parsedmarc-go/internal/parser"
+
 	"go.uber.org/zap"
+	"parsedmarc-go/internal/config"
+	"parsedmarc-go/internal/parser"
 )
 
 // Server represents the HTTP server for receiving DMARC reports
 type Server struct {
-	config    config.HTTPConfig
-	parser    *parser.Parser
-	logger    *zap.Logger
-	server    *http.Server
-	
+	config config.HTTPConfig
+	parser *parser.Parser
+	logger *zap.Logger
+	server *http.Server
+
 	// Rate limiting
 	limiters map[string]*rate.Limiter
 	mu       sync.RWMutex
-	
+
 	// Metrics
 	metrics *Metrics
 }
 
 // Metrics holds Prometheus metrics
 type Metrics struct {
-	RequestsTotal          *prometheus.CounterVec
-	RequestDuration        *prometheus.HistogramVec
-	ReportsProcessedTotal  *prometheus.CounterVec
-	ReportsFailedTotal     *prometheus.CounterVec
-	ActiveConnections      prometheus.Gauge
-	ReportSizeBytes        prometheus.Histogram
+	RequestsTotal         *prometheus.CounterVec
+	RequestDuration       *prometheus.HistogramVec
+	ReportsProcessedTotal *prometheus.CounterVec
+	ReportsFailedTotal    *prometheus.CounterVec
+	ActiveConnections     prometheus.Gauge
+	ReportSizeBytes       prometheus.Histogram
 }
 
 // New creates a new HTTP server instance
@@ -119,7 +119,7 @@ func (s *Server) Start() error {
 
 	// Set Gin mode based on log level
 	gin.SetMode(gin.ReleaseMode)
-	
+
 	router := gin.New()
 	router.Use(s.loggingMiddleware())
 	router.Use(s.recoveryMiddleware())
@@ -129,18 +129,19 @@ func (s *Server) Start() error {
 
 	// Simple DMARC endpoint (RFC 7489 compliant)
 	router.POST("/dmarc/report", s.handleDMARCReport)
-	
+	router.PUT("/dmarc/report", s.handleDMARCReport)
+
 	// Health check
 	router.GET("/health", s.handleHealth)
-	
+
 	// Metrics endpoint
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
-	
+
 	// Root endpoint
 	router.GET("/", s.handleRoot)
 
 	address := fmt.Sprintf("%s:%d", s.config.Host, s.config.Port)
-	
+
 	s.server = &http.Server{
 		Addr:         address,
 		Handler:      router,
@@ -149,7 +150,7 @@ func (s *Server) Start() error {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	s.logger.Info("Starting HTTP server", 
+	s.logger.Info("Starting HTTP server",
 		zap.String("address", address),
 		zap.Bool("tls", s.config.TLS),
 	)
@@ -169,7 +170,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	if s.server == nil {
 		return nil
 	}
-	
+
 	s.logger.Info("Stopping HTTP server...")
 	return s.server.Shutdown(ctx)
 }
@@ -188,7 +189,7 @@ func (s *Server) loggingMiddleware() gin.HandlerFunc {
 		clientIP := c.ClientIP()
 		method := c.Request.Method
 		statusCode := c.Writer.Status()
-		
+
 		if raw != "" {
 			path = path + "?" + raw
 		}
@@ -230,17 +231,17 @@ func (s *Server) rateLimitMiddleware() gin.HandlerFunc {
 
 		clientIP := c.ClientIP()
 		limiter := s.getLimiter(clientIP)
-		
+
 		if !limiter.Allow() {
 			s.logger.Warn("Rate limit exceeded", zap.String("client_ip", clientIP))
 			c.JSON(http.StatusTooManyRequests, gin.H{
-				"error": "Rate limit exceeded",
+				"error":       "Rate limit exceeded",
 				"retry_after": "60s",
 			})
 			c.Abort()
 			return
 		}
-		
+
 		c.Next()
 	}
 }
@@ -258,19 +259,19 @@ func (s *Server) metricsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		s.metrics.ActiveConnections.Inc()
-		
+
 		defer func() {
 			s.metrics.ActiveConnections.Dec()
 			duration := time.Since(start).Seconds()
-			
+
 			endpoint := s.getEndpointLabel(c.Request.URL.Path)
 			method := c.Request.Method
 			status := fmt.Sprintf("%d", c.Writer.Status())
-			
+
 			s.metrics.RequestsTotal.WithLabelValues(method, endpoint, status).Inc()
 			s.metrics.RequestDuration.WithLabelValues(method, endpoint).Observe(duration)
 		}()
-		
+
 		c.Next()
 	}
 }
@@ -324,7 +325,7 @@ func (s *Server) handleRoot(c *gin.Context) {
 
 func (s *Server) handleHealth(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"status": "healthy",
+		"status":    "healthy",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	})
 }
@@ -332,7 +333,7 @@ func (s *Server) handleHealth(c *gin.Context) {
 func (s *Server) handleDMARCReport(c *gin.Context) {
 	// Simple endpoint for DMARC reports (RFC 7489 compliant)
 	contentType := c.GetHeader("Content-Type")
-	
+
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		s.logger.Error("Failed to read request body", zap.Error(err))
@@ -370,14 +371,14 @@ func (s *Server) handleDMARCReport(c *gin.Context) {
 		s.logger.Error("Failed to parse DMARC report", zap.Error(err))
 		s.metrics.ReportsFailedTotal.WithLabelValues(reportType, "parse_failed").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Failed to parse DMARC report",
+			"error":   "Failed to parse DMARC report",
 			"details": err.Error(),
 		})
 		return
 	}
 
 	s.metrics.ReportsProcessedTotal.WithLabelValues(reportType).Inc()
-	
+
 	s.logger.Info("Successfully processed DMARC report",
 		zap.String("client_ip", c.ClientIP()),
 		zap.String("content_type", contentType),
@@ -416,25 +417,25 @@ func (s *Server) isValidDMARCContentType(contentType string) bool {
 
 func (s *Server) detectReportType(body []byte, contentType string) string {
 	contentTypeStr := strings.ToLower(contentType)
-	
+
 	if strings.Contains(contentTypeStr, "tlsrpt") {
 		return "smtp_tls"
 	}
-	
+
 	bodyStr := strings.ToLower(string(body[:min(len(body), 1024)]))
-	
+
 	if strings.Contains(bodyStr, "feedback-type:") {
 		return "forensic"
 	}
-	
+
 	if strings.Contains(bodyStr, "<feedback") || strings.Contains(bodyStr, "<report_metadata") {
 		return "aggregate"
 	}
-	
+
 	if strings.Contains(bodyStr, "organization-name") {
 		return "smtp_tls"
 	}
-	
+
 	return "unknown"
 }
 
