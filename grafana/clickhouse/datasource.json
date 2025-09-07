@@ -1,0 +1,25 @@
+{
+  "name": "ClickHouse DMARC",
+  "type": "grafana-clickhouse-datasource",
+  "access": "proxy",
+  "url": "http://localhost:8123",
+  "database": "dmarc",
+  "basicAuth": false,
+  "basicAuthUser": "",
+  "basicAuthPassword": "",
+  "withCredentials": false,
+  "isDefault": true,
+  "jsonData": {
+    "server": "localhost",
+    "port": 8123,
+    "username": "default",
+    "defaultDatabase": "dmarc",
+    "dialTimeout": "10s",
+    "maxIdleConns": 10,
+    "maxOpenConns": 10,
+    "connMaxLifetime": "14400s"
+  },
+  "secureJsonData": {
+    "password": ""
+  }
+}

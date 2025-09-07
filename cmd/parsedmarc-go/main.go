@@ -1,0 +1,195 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
+
+	"github.com/domainaware/parsedmarc-go/internal/config"
+	"github.com/domainaware/parsedmarc-go/internal/http"
+	"github.com/domainaware/parsedmarc-go/internal/imap"
+	"github.com/domainaware/parsedmarc-go/internal/logger"
+	"github.com/domainaware/parsedmarc-go/internal/parser"
+	"github.com/domainaware/parsedmarc-go/internal/storage/clickhouse"
+	"go.uber.org/zap"
+)
+
+const version = "1.0.0"
+
+func main() {
+	var (
+		configFile  = flag.String("config", "config.yaml", "Config file path")
+		inputFile   = flag.String("input", "", "Input file or directory to parse")
+		showVersion = flag.Bool("version", false, "Show version information")
+		daemon      = flag.Bool("daemon", false, "Run as daemon (enables IMAP and HTTP)")
+	)
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("parsedmarc-go version %s\n", version)
+		return
+	}
+
+	// Initialize configuration
+	cfg, err := config.Load(*configFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize logger
+	log, err := logger.New(cfg.Logging)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
+		os.Exit(1)
+	}
+	defer log.Sync()
+
+	log.Info("Starting parsedmarc-go", 
+		zap.String("version", version),
+		zap.String("config", *configFile),
+		zap.Bool("daemon", *daemon),
+	)
+
+	// Initialize storage
+	var storage parser.Storage
+	if cfg.ClickHouse.Enabled {
+		storage, err = clickhouse.New(cfg.ClickHouse, log)
+		if err != nil {
+			log.Fatal("Failed to initialize ClickHouse storage", zap.Error(err))
+		}
+		defer storage.Close()
+	}
+
+	// Initialize parser
+	p := parser.New(cfg.Parser, storage, log)
+
+	// Handle single file processing
+	if *inputFile != "" && !*daemon {
+		err = p.ParseFile(*inputFile)
+		if err != nil {
+			log.Fatal("Failed to parse file", 
+				zap.String("file", *inputFile),
+				zap.Error(err),
+			)
+		}
+		log.Info("Processing completed successfully")
+		return
+	}
+
+	// Run in daemon mode
+	if *daemon || cfg.IMAP.Enabled || cfg.HTTP.Enabled {
+		runDaemon(cfg, p, log)
+	} else {
+		log.Info("No input file specified and daemon mode disabled")
+		log.Info("Use -input flag for single file processing or -daemon flag for continuous processing")
+	}
+}
+
+func runDaemon(cfg *config.Config, p *parser.Parser, log *zap.Logger) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var wg sync.WaitGroup
+
+	// Start HTTP server if enabled
+	var httpServer *http.Server
+	if cfg.HTTP.Enabled {
+		httpServer = http.New(cfg.HTTP, p, log)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := httpServer.Start(); err != nil {
+				log.Error("HTTP server failed", zap.Error(err))
+			}
+		}()
+		log.Info("HTTP server started")
+	}
+
+	// Start IMAP client if enabled
+	var imapClient *imap.Client
+	if cfg.IMAP.Enabled {
+		imapClient = imap.New(cfg.IMAP, p, log)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					if err := imapClient.Connect(); err != nil {
+						log.Error("Failed to connect to IMAP server", zap.Error(err))
+						time.Sleep(30 * time.Second)
+						continue
+					}
+
+					if err := imapClient.ProcessMessages(); err != nil {
+						log.Error("Failed to process IMAP messages", zap.Error(err))
+					}
+
+					imapClient.Disconnect()
+					
+					// Wait before next check
+					select {
+					case <-ctx.Done():
+						return
+					case <-time.After(time.Duration(cfg.IMAP.CheckInterval) * time.Second):
+					}
+				}
+			}
+		}()
+		log.Info("IMAP client started")
+	}
+
+	// Set up signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Wait for signal
+	sig := <-sigChan
+	log.Info("Received signal, shutting down", zap.String("signal", sig.String()))
+
+	// Cancel context to stop goroutines
+	cancel()
+
+	// Stop HTTP server gracefully
+	if httpServer != nil {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer shutdownCancel()
+		
+		if err := httpServer.Stop(shutdownCtx); err != nil {
+			log.Error("Failed to stop HTTP server", zap.Error(err))
+		} else {
+			log.Info("HTTP server stopped")
+		}
+	}
+
+	// Disconnect IMAP client
+	if imapClient != nil {
+		if err := imapClient.Disconnect(); err != nil {
+			log.Error("Failed to disconnect IMAP client", zap.Error(err))
+		} else {
+			log.Info("IMAP client disconnected")
+		}
+	}
+
+	// Wait for goroutines to finish with timeout
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Info("All services stopped")
+	case <-time.After(30 * time.Second):
+		log.Warn("Timeout waiting for services to stop")
+	}
+}
