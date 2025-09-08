@@ -54,12 +54,28 @@ func NewParserMetrics() *ParserMetrics {
 		),
 	}
 
-	prometheus.MustRegister(
-		metrics.ParsedReportsTotal,
-		metrics.ParseFailuresTotal,
-		metrics.ParseDurationSeconds,
-		metrics.ReportSizeBytes,
-	)
+	// Only register if not already registered (to avoid test conflicts)
+	registry := prometheus.DefaultRegisterer
+	if err := registry.Register(metrics.ParsedReportsTotal); err != nil {
+		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+			panic(err)
+		}
+	}
+	if err := registry.Register(metrics.ParseFailuresTotal); err != nil {
+		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+			panic(err)
+		}
+	}
+	if err := registry.Register(metrics.ParseDurationSeconds); err != nil {
+		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+			panic(err)
+		}
+	}
+	if err := registry.Register(metrics.ReportSizeBytes); err != nil {
+		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+			panic(err)
+		}
+	}
 
 	return metrics
 }
@@ -96,12 +112,28 @@ func NewIMAPMetrics() *IMAPMetrics {
 		),
 	}
 
-	prometheus.MustRegister(
-		metrics.ConnectionAttemptsTotal,
-		metrics.MessagesProcessedTotal,
-		metrics.ConnectionDuration,
-		metrics.LastCheckTimestamp,
-	)
+	// Only register if not already registered (to avoid test conflicts)
+	registry := prometheus.DefaultRegisterer
+	if err := registry.Register(metrics.ConnectionAttemptsTotal); err != nil {
+		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+			panic(err)
+		}
+	}
+	if err := registry.Register(metrics.MessagesProcessedTotal); err != nil {
+		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+			panic(err)
+		}
+	}
+	if err := registry.Register(metrics.ConnectionDuration); err != nil {
+		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+			panic(err)
+		}
+	}
+	if err := registry.Register(metrics.LastCheckTimestamp); err != nil {
+		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+			panic(err)
+		}
+	}
 
 	return metrics
 }

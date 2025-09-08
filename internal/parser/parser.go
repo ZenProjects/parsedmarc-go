@@ -67,7 +67,9 @@ func (p *Parser) parseDataWithSource(data []byte, source string) error {
 	extractedData, err := p.extractReportData(data)
 	if err != nil {
 		duration := time.Since(start).Seconds()
-		p.metrics.RecordParseFailure("unknown", source, "extraction_failed", duration, size)
+		if p.metrics != nil {
+			p.metrics.RecordParseFailure("unknown", source, "extraction_failed", duration, size)
+		}
 		return fmt.Errorf("failed to extract report data: %w", err)
 	}
 
@@ -85,7 +87,9 @@ func (p *Parser) parseDataWithSource(data []byte, source string) error {
 	}
 
 	duration := time.Since(start).Seconds()
-	p.metrics.RecordParseFailure("unknown", source, "unknown_format", duration, size)
+	if p.metrics != nil {
+		p.metrics.RecordParseFailure("unknown", source, "unknown_format", duration, size)
+	}
 	return fmt.Errorf("unable to parse data as any known DMARC report type")
 }
 
@@ -328,20 +332,26 @@ func (p *Parser) parseAsAggregateReportWithMetrics(data []byte, source string, s
 	report, err := p.parseAggregateXML(data)
 	if err != nil {
 		duration := time.Since(start).Seconds()
-		p.metrics.RecordParseFailure("aggregate", source, "parse_failed", duration, size)
+		if p.metrics != nil {
+			p.metrics.RecordParseFailure("aggregate", source, "parse_failed", duration, size)
+		}
 		return err
 	}
 
 	if p.storage != nil {
 		if err := p.storage.StoreAggregateReport(report); err != nil {
 			duration := time.Since(start).Seconds()
-			p.metrics.RecordParseFailure("aggregate", source, "storage_failed", duration, size)
+			if p.metrics != nil {
+				p.metrics.RecordParseFailure("aggregate", source, "storage_failed", duration, size)
+			}
 			return fmt.Errorf("failed to store aggregate report: %w", err)
 		}
 	}
 
 	duration := time.Since(start).Seconds()
-	p.metrics.RecordParseSuccess("aggregate", source, duration, size)
+	if p.metrics != nil {
+		p.metrics.RecordParseSuccess("aggregate", source, duration, size)
+	}
 
 	p.logger.Info("Successfully parsed aggregate report",
 		zap.String("org", report.ReportMetadata.OrgName),
@@ -358,20 +368,26 @@ func (p *Parser) parseAsForensicReportWithMetrics(data []byte, source string, st
 	report, err := p.parseForensicEmail(data)
 	if err != nil {
 		duration := time.Since(start).Seconds()
-		p.metrics.RecordParseFailure("forensic", source, "parse_failed", duration, size)
+		if p.metrics != nil {
+			p.metrics.RecordParseFailure("forensic", source, "parse_failed", duration, size)
+		}
 		return err
 	}
 
 	if p.storage != nil {
 		if err := p.storage.StoreForensicReport(report); err != nil {
 			duration := time.Since(start).Seconds()
-			p.metrics.RecordParseFailure("forensic", source, "storage_failed", duration, size)
+			if p.metrics != nil {
+				p.metrics.RecordParseFailure("forensic", source, "storage_failed", duration, size)
+			}
 			return fmt.Errorf("failed to store forensic report: %w", err)
 		}
 	}
 
 	duration := time.Since(start).Seconds()
-	p.metrics.RecordParseSuccess("forensic", source, duration, size)
+	if p.metrics != nil {
+		p.metrics.RecordParseSuccess("forensic", source, duration, size)
+	}
 
 	p.logger.Info("Successfully parsed forensic report",
 		zap.String("subject", report.Subject),
@@ -388,12 +404,16 @@ func (p *Parser) parseAsSMTPTLSReportWithMetrics(data []byte, source string, sta
 	var report SMTPTLSReport
 	if err := json.Unmarshal(data, &report); err != nil {
 		duration := time.Since(start).Seconds()
-		p.metrics.RecordParseFailure("smtp_tls", source, "parse_failed", duration, size)
+		if p.metrics != nil {
+			p.metrics.RecordParseFailure("smtp_tls", source, "parse_failed", duration, size)
+		}
 		return err
 	}
 
 	duration := time.Since(start).Seconds()
-	p.metrics.RecordParseSuccess("smtp_tls", source, duration, size)
+	if p.metrics != nil {
+		p.metrics.RecordParseSuccess("smtp_tls", source, duration, size)
+	}
 
 	p.logger.Info("Successfully parsed SMTP TLS report",
 		zap.String("org", report.OrganizationName),

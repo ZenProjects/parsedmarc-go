@@ -30,7 +30,9 @@ For the same reason, I haven't converted Microsoft Graph and Gmail API support.
 
   
 - ✅ JSON and CSV output formats.
-  - ✅ Output to file or stdout.
+  - ✅ Output to file, directory, or stdout.
+  - ✅ File mode: concatenates reports in a single file.
+  - ✅ Directory mode: saves each report as a separate file with timestamp.
 - ✅ Optionally, store reports result in ClickHouse database.
 - ✅ Optionally, send reports to Email or Kafka topic.
 
@@ -115,7 +117,7 @@ Usage of parsedmarc-go:
   -input string
         Input file or directory to parse
   -output string
-        Output file (default: stdout)
+        Output file or directory path (default: stdout)
   -version
         Show version information
 ```
@@ -138,6 +140,20 @@ Usage of parsedmarc-go:
 ./parsedmarc-go -input report.xml -output results.csv -format csv
 ```
 
+### Output to directory (separate files per report)
+
+```bash
+# Create output directory
+mkdir ./reports_output
+
+# Each report will be saved as a separate file with timestamp
+./parsedmarc-go -input report.xml -output ./reports_output -format json
+# Creates: reports_output/aggregate_20240101_120000_reportID.json
+
+# In daemon mode, each incoming report creates a new file
+./parsedmarc-go -daemon -output ./reports_output -format json
+```
+
 ### Output to stdout (default)
 
 ```bash
@@ -147,10 +163,43 @@ Usage of parsedmarc-go:
 ### Parsing a directory
 
 ```bash
+# Concatenate all reports into a single file
 ./parsedmarc-go -input /path/to/reports/ -output all_reports.json -format json
+
+# Save each report as a separate file
+./parsedmarc-go -input /path/to/reports/ -output ./output_dir/ -format json
 ```
 
 ### Daemon mode (IMAP + HTTP)
+
+Modify this section of the config.yml :
+```yaml
+# IMAP configuration for fetching reports from email
+imap:
+  enabled: true                          # Enable IMAP client
+  host: "imap.host.com"                  # IMAP server hostname
+  port: 993                              # IMAP server port (993 for TLS, 143 for plain)
+  username: "user"                       # IMAP username
+  password: "pass"                       # IMAP password
+  tls: true                              # Use TLS/SSL connection
+  skip_verify: false                     # Skip TLS certificate verification
+  mailbox: "INBOX"                       # Mailbox to monitor
+  archive_mailbox: "DMARC-Archive"       # Mailbox to move processed emails
+  delete_processed: false                # Delete processed emails instead of archiving
+  check_interval: 300                    # Check interval in seconds (5 minutes)
+
+# HTTP server configuration for receiving reports
+http:
+  enabled: true                          # Enable HTTP server
+  host: "0.0.0.0"                        # Host to bind to
+  port: 8080                             # Port to listen on
+  tls: false                             # Enable TLS/HTTPS
+  cert_file: ""                          # TLS certificate file path (required if tls: true)
+  key_file: ""                           # TLS private key file path (required if tls: true)
+  rate_limit: 60                         # Requests per minute per IP
+  rate_burst: 10                         # Burst capacity for rate limiter
+  max_upload_size: 52428800              # Max upload size in bytes (50MB)
+```
 
 ```bash
 ./parsedmarc-go -daemon -config config.yaml
@@ -158,12 +207,52 @@ Usage of parsedmarc-go:
 
 ### HTTP server only
 
+Modify this section of the config.yml :
+```yaml
+# IMAP configuration for fetching reports from email
+imap:
+  enabled: false                          # Enable IMAP client
+
+# HTTP server configuration for receiving reports
+http:
+  enabled: true                          # Enable HTTP server
+  host: "0.0.0.0"                        # Host to bind to
+  port: 8080                             # Port to listen on
+  tls: false                             # Enable TLS/HTTPS
+  cert_file: ""                          # TLS certificate file path (required if tls: true)
+  key_file: ""                           # TLS private key file path (required if tls: true)
+  rate_limit: 60                         # Requests per minute per IP
+  rate_burst: 10                         # Burst capacity for rate limiter
+  max_upload_size: 52428800              # Max upload size in bytes (50MB)
+```
+
 ```bash
 # Enable HTTP in config.yaml then:
 ./parsedmarc-go -daemon
 ```
 
 ### IMAP client only
+
+Modify this section of the config.yml :
+```yaml
+# IMAP configuration for fetching reports from email
+imap:
+  enabled: true                          # Enable IMAP client
+  host: "imap.host.com"                  # IMAP server hostname
+  port: 993                              # IMAP server port (993 for TLS, 143 for plain)
+  username: "user"                       # IMAP username
+  password: "pass"                       # IMAP password
+  tls: true                              # Use TLS/SSL connection
+  skip_verify: false                     # Skip TLS certificate verification
+  mailbox: "INBOX"                       # Mailbox to monitor
+  archive_mailbox: "DMARC-Archive"       # Mailbox to move processed emails
+  delete_processed: false                # Delete processed emails instead of archiving
+  check_interval: 300                    # Check interval in seconds (5 minutes)
+
+# HTTP server configuration for receiving reports
+http:
+  enabled: false                          # Enable HTTP server
+```
 
 ```bash
 # Enable IMAP in config.yaml then:

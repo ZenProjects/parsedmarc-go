@@ -22,7 +22,7 @@ func createTestParser(t *testing.T) *Parser {
 		config:  cfg,
 		storage: nil,
 		logger:  logger,
-		metrics: &metrics.ParserMetrics{}, // Use empty metrics struct
+		metrics: nil, // Use nil metrics for tests
 	}
 
 	return parser

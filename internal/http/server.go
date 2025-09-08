@@ -91,15 +91,24 @@ func New(cfg config.HTTPConfig, p *parser.Parser, logger *zap.Logger) *Server {
 		),
 	}
 
-	// Register metrics
-	prometheus.MustRegister(
+	// Register metrics with error handling
+	registry := prometheus.DefaultRegisterer
+	metricsToRegister := []prometheus.Collector{
 		metrics.RequestsTotal,
 		metrics.RequestDuration,
 		metrics.ReportsProcessedTotal,
 		metrics.ReportsFailedTotal,
 		metrics.ActiveConnections,
 		metrics.ReportSizeBytes,
-	)
+	}
+
+	for _, metric := range metricsToRegister {
+		if err := registry.Register(metric); err != nil {
+			if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+				panic(err)
+			}
+		}
+	}
 
 	return &Server{
 		config:   cfg,

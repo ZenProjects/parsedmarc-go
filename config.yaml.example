@@ -20,7 +20,7 @@ parser:
 
 # ClickHouse storage configuration
 clickhouse:
-  enabled: true                           # Enable ClickHouse storage
+  enabled: false                           # Enable ClickHouse storage
   host: localhost                         # ClickHouse host
   port: 9000                             # ClickHouse port
   database: dmarc                        # Database name
