@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/domainaware/parsedmarc-go/internal/config"
-	"github.com/domainaware/parsedmarc-go/internal/metrics"
-	"github.com/domainaware/parsedmarc-go/internal/utils"
 	"go.uber.org/zap"
+	"parsedmarc-go/internal/config"
+	"parsedmarc-go/internal/metrics"
+	"parsedmarc-go/internal/utils"
 )
 
 // Parser handles DMARC report parsing

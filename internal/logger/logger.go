@@ -1,8 +1,8 @@
 package logger
 
 import (
-	"github.com/domainaware/parsedmarc-go/internal/config"
 	"go.uber.org/zap"
+	"parsedmarc-go/internal/config"
 )
 
 // New creates a new zap logger based on configuration

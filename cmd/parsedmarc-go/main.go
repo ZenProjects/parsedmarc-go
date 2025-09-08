@@ -6,27 +6,31 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/domainaware/parsedmarc-go/internal/config"
-	"github.com/domainaware/parsedmarc-go/internal/http"
-	"github.com/domainaware/parsedmarc-go/internal/imap"
-	"github.com/domainaware/parsedmarc-go/internal/logger"
-	"github.com/domainaware/parsedmarc-go/internal/parser"
-	"github.com/domainaware/parsedmarc-go/internal/storage/clickhouse"
 	"go.uber.org/zap"
+	"parsedmarc-go/internal/config"
+	"parsedmarc-go/internal/http"
+	"parsedmarc-go/internal/imap"
+	"parsedmarc-go/internal/logger"
+	"parsedmarc-go/internal/output"
+	"parsedmarc-go/internal/parser"
+	"parsedmarc-go/internal/storage/clickhouse"
 )
 
 const version = "1.0.0"
 
 func main() {
 	var (
-		configFile  = flag.String("config", "config.yaml", "Config file path")
-		inputFile   = flag.String("input", "", "Input file or directory to parse")
-		showVersion = flag.Bool("version", false, "Show version information")
-		daemon      = flag.Bool("daemon", false, "Run as daemon (enables IMAP and HTTP)")
+		configFile   = flag.String("config", "config.yaml", "Config file path")
+		inputFile    = flag.String("input", "", "Input file or directory to parse")
+		outputFile   = flag.String("output", "", "Output file (default: stdout)")
+		outputFormat = flag.String("format", "json", "Output format: json, csv")
+		showVersion  = flag.Bool("version", false, "Show version information")
+		daemon       = flag.Bool("daemon", false, "Run as daemon (enables IMAP and HTTP)")
 	)
 	flag.Parse()
 
@@ -50,7 +54,7 @@ func main() {
 	}
 	defer log.Sync()
 
-	log.Info("Starting parsedmarc-go", 
+	log.Info("Starting parsedmarc-go",
 		zap.String("version", version),
 		zap.String("config", *configFile),
 		zap.Bool("daemon", *daemon),
@@ -71,9 +75,25 @@ func main() {
 
 	// Handle single file processing
 	if *inputFile != "" && !*daemon {
-		err = p.ParseFile(*inputFile)
+		// Validate output format
+		format := output.Format(strings.ToLower(*outputFormat))
+		if format != output.FormatJSON && format != output.FormatCSV {
+			log.Fatal("Invalid output format", zap.String("format", *outputFormat))
+		}
+
+		// Create output writer
+		outputWriter, err := output.NewWriter(output.Config{
+			Format: format,
+			File:   *outputFile,
+		})
 		if err != nil {
-			log.Fatal("Failed to parse file", 
+			log.Fatal("Failed to create output writer", zap.Error(err))
+		}
+		defer outputWriter.Close()
+
+		err = parseFileWithOutput(*inputFile, p, outputWriter, log)
+		if err != nil {
+			log.Fatal("Failed to parse file",
 				zap.String("file", *inputFile),
 				zap.Error(err),
 			)
@@ -134,7 +154,7 @@ func runDaemon(cfg *config.Config, p *parser.Parser, log *zap.Logger) {
 					}
 
 					imapClient.Disconnect()
-					
+
 					// Wait before next check
 					select {
 					case <-ctx.Done():
@@ -162,7 +182,7 @@ func runDaemon(cfg *config.Config, p *parser.Parser, log *zap.Logger) {
 	if httpServer != nil {
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer shutdownCancel()
-		
+
 		if err := httpServer.Stop(shutdownCtx); err != nil {
 			log.Error("Failed to stop HTTP server", zap.Error(err))
 		} else {
@@ -192,4 +212,54 @@ func runDaemon(cfg *config.Config, p *parser.Parser, log *zap.Logger) {
 	case <-time.After(30 * time.Second):
 		log.Warn("Timeout waiting for services to stop")
 	}
+}
+
+// parseFileWithOutput parses a file and writes output using the specified writer
+func parseFileWithOutput(inputFile string, p *parser.Parser, outputWriter output.Writer, log *zap.Logger) error {
+	// Check if input is a directory or file
+	stat, err := os.Stat(inputFile)
+	if err != nil {
+		return fmt.Errorf("failed to stat input: %w", err)
+	}
+
+	if stat.IsDir() {
+		return parseDirectoryWithOutput(inputFile, p, outputWriter, log)
+	} else {
+		return parseSingleFileWithOutput(inputFile, p, outputWriter, log)
+	}
+}
+
+// parseDirectoryWithOutput parses all files in a directory
+func parseDirectoryWithOutput(directory string, p *parser.Parser, outputWriter output.Writer, log *zap.Logger) error {
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return fmt.Errorf("failed to read directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue // Skip subdirectories for now
+		}
+
+		filePath := fmt.Sprintf("%s/%s", directory, entry.Name())
+		log.Info("Processing file", zap.String("file", filePath))
+
+		if err := parseSingleFileWithOutput(filePath, p, outputWriter, log); err != nil {
+			log.Warn("Failed to process file", zap.String("file", filePath), zap.Error(err))
+			continue // Continue with other files
+		}
+	}
+
+	return nil
+}
+
+// parseSingleFileWithOutput parses a single file and writes output
+func parseSingleFileWithOutput(filePath string, p *parser.Parser, outputWriter output.Writer, log *zap.Logger) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Use the new ParseWithOutput method
+	return p.ParseWithOutput(data, outputWriter)
 }
