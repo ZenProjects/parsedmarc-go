@@ -8,6 +8,24 @@ With claude we have added :
 - The clickhouse support
 - The HTTP report method
 
+And i've not converted Elasticsearch, Opensearch, and/or Splunk storage support.
+
+## Python version Features
+
+- ✅ Parses draft and 1.0 standard aggregate/rua DMARC reports
+- ✅Parses forensic/failure/ruf DMARC reports
+- ✅Parses reports from SMTP TLS Reporting
+- ✅Can parse reports from an inbox over IMAP 
+- 🟩 Microsoft Graph
+- 🟩Gmail API
+- ✅Transparently handles gzip or zip compressed reports
+- ✅Consistent data structures
+- ✅Simple JSON and/or CSV output
+- 🟩Optionally email the results
+- 🟩Optionally send the results to Elasticsearch, Opensearch, and/or Splunk, for use
+  with premade dashboards
+- 🟩Optionally send reports to Apache Kafka
+
 ## Features
 
 - ✅ DMARC aggregate report parsing (RFC 7489) - supports draft and 1.0 standard formats
@@ -17,19 +35,19 @@ With claude we have added :
   - ✅ IP address geolocation (with MaxMind database)
   - ✅ Reverse DNS resolution
 
- 
+
 - ✅ Can parse reports from an inbox over IMAP 
   - ✅ TLS/SSL support for IMAP and HTTP
 - ✅ Can parse reports posted over HTTP (POST/PUT methods - IETF draft-kucherawy-dmarc-base)
   - ✅ Rate limiting and data validation
 
-
-- ✅ Built-in Prometheus metrics
+  
 - ✅ JSON and CSV output formats
   - ✅ Output to file or stdout
-  - ✅ Compatible with Python parsedmarc output
-
 - ✅ ClickHouse database storage
+
+
+- ✅ Built-in Prometheus metrics (for the imap and httpd mode)
 
 ## Installation
 
