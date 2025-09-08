@@ -55,6 +55,31 @@ test-coverage: ## Run tests with coverage
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
+test-parser: ## Run parser tests only
+	@echo "Running parser tests..."
+	@go test -v ./internal/parser/
+
+test-http: ## Run HTTP server tests only
+	@echo "Running HTTP server tests..."
+	@go test -v ./internal/http/
+
+test-integration: ## Run integration tests (requires ClickHouse)
+	@echo "Running integration tests..."
+	@go test -v ./internal/storage/clickhouse/
+
+test-short: ## Run tests excluding integration tests
+	@echo "Running short tests..."
+	@go test -v -short ./...
+
+benchmark: ## Run benchmark tests
+	@echo "Running benchmark tests..."
+	@go test -v -bench=. ./...
+
+test-samples: ## Verify all sample files can be parsed
+	@echo "Testing sample files..."
+	@go run $(BINARY_PATH) -input samples/aggregate/
+	@echo "Sample files test completed"
+
 fmt: ## Format code
 	@echo "Formatting code..."
 	@go fmt ./...
