@@ -2,47 +2,22 @@
 
 A Go implementation of the DMARC report parser, based on the original Python [parsedmarc](https://github.com/domainaware/parsedmarc) project.
 
-The convertion has been done with Claude AI. 
+The conversion to Golang has been done with Claude AI. 
 
-With claude we have added :
-- The clickhouse support
-- The HTTP report method
+With Claude, I also added support for:
+- Clickhouse storage (with pre-configured Grafana dashboard).
+- HTTP reporting method (RUA/RUF defined with the https/http scheme URI).
+- Prometeus daemon mode monitoring (with IMAP or HTTP reporting).
 
-And i've not converted Elasticsearch, Opensearch, and/or Splunk storage support.
+I haven't converted Elasticsearch/Opensearch/Splunk storage because I don't use these products and can't test them.
 
-## Python version Features
-
-- ✅ Parses draft and 1.0 standard aggregate/rua DMARC reports
-- ✅Parses forensic/failure/ruf DMARC reports
-- ✅Parses reports from SMTP TLS Reporting
-- ✅Can parse reports from an inbox over IMAP 
-- 🟩 Microsoft Graph
-- 🟩Gmail API
-- ✅Transparently handles gzip or zip compressed reports
-- ✅Consistent data structures
-- ✅Simple JSON and/or CSV output
-- 🟩Optionally email the results
-- 🟩Optionally send the results to Elasticsearch, Opensearch, and/or Splunk, for use
-  with premade dashboards
-- 🟩Optionally send reports to Apache Kafka
-
-## Differences with Python parsedmarc
-
-- **Performance**: Faster native Go implementation
-- **Simplicity**: Fewer external dependencies
-- **Native ClickHouse**: Built-in ClickHouse support
-- **Configuration**: YAML configuration with environment variables
-- **Logging**: Structured logging with Zap
-- **Simple HTTP**: Minimalist RFC 7489 compliant HTTP server
-- **Robust IMAP**: IMAP client with automatic reconnection
-- **Metrics**: Built-in Prometheus for complete monitoring
-- **Complete parsing**: Support for aggregate, forensic and SMTP TLS
+For the same reason, I haven't converted Microsoft Graph and Gmail API support.
 
 ## Features
 
-- ✅ DMARC aggregate report parsing (RFC 7489) - supports draft and 1.0 standard formats
-- ✅ Forensic/failure report parsing (RFC 6591 ARF format) - supports auth-failure reports
-- ✅ SMTP TLS report support (RFC 8460)
+- ✅ DMARC aggregate report parsing ([RFC 7489](https://datatracker.ietf.org/doc/html/rfc7489)) - supports draft and 1.0 standard formats
+- ✅ Forensic/failure report parsing ([RFC 6591 ARF format](https://datatracker.ietf.org/doc/html/rfc6591)) - supports auth-failure reports
+- ✅ SMTP TLS report support ([RFC 8460](https://datatracker.ietf.org/doc/html/rfc8460))
   - ✅ Compressed file support (GZIP preferred, ZIP legacy support)
   - ✅ IP address geolocation (with MaxMind database)
   - ✅ Reverse DNS resolution
@@ -50,13 +25,14 @@ And i've not converted Elasticsearch, Opensearch, and/or Splunk storage support.
 
 - ✅ Can parse reports from an inbox over IMAP 
   - ✅ TLS/SSL support for IMAP and HTTP
-- ✅ Can parse reports posted over HTTP (POST/PUT methods - IETF draft-kucherawy-dmarc-base)
+- ✅ Can parse reports posted over HTTP (POST/PUT methods - [IETF draft-kucherawy-dmarc-base](https://datatracker.ietf.org/doc/html/draft-kucherawy-dmarc-base-02#appendix-B.6))
   - ✅ Rate limiting and data validation
 
   
-- ✅ JSON and CSV output formats
-  - ✅ Output to file or stdout
-- ✅ ClickHouse database storage
+- ✅ JSON and CSV output formats.
+  - ✅ Output to file or stdout.
+- ✅ Optionally, store reports result in ClickHouse database.
+- ✅ Optionally, send reports to Email or Kafka topic.
 
 
 - ✅ Built-in Prometheus metrics (for the imap and httpd mode)

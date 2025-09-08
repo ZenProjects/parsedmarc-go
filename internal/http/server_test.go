@@ -47,12 +47,6 @@ func TestServer_HandleHealth(t *testing.T) {
 	}
 
 	recorder := httptest.NewRecorder()
-	handler := server.handleHealth
-
-	handler(nil) // Pass nil since we're testing the handler directly
-
-	// We need to test via the router to get proper response
-	// Let's create a test router
 	router := server.setupRouter()
 	router.ServeHTTP(recorder, req)
 
@@ -436,7 +430,19 @@ func (s *Server) setupRouter() http.Handler {
 
 // Benchmark tests
 func BenchmarkServer_HandleDMARCReport(b *testing.B) {
-	server := setupTestServer(b)
+	// Create a logger and config for benchmarking
+	logger := zaptest.NewLogger(b)
+	parserConfig := config.ParserConfig{Offline: true}
+	p := parser.New(parserConfig, nil, logger)
+	httpConfig := config.HTTPConfig{
+		Enabled:       true,
+		Host:          "localhost",
+		Port:          8080,
+		MaxUploadSize: 10 * 1024 * 1024,
+		RateLimit:     100,
+		RateBurst:     10,
+	}
+	server := New(httpConfig, p, logger)
 	router := server.setupRouter()
 
 	// Load sample data

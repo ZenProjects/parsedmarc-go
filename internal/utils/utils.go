@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net"
 	"strconv"
@@ -122,8 +123,25 @@ func GetBaseDomain(hostname string) string {
 		return hostname
 	}
 
+	// Handle special cases like Akamai CDN (e.g., "e3191.c.akamaiedge.net" -> "c.akamaiedge.net")
+	if len(parts) >= 3 && parts[len(parts)-2] == "akamaiedge" {
+		return strings.Join(parts[len(parts)-3:], ".")
+	}
+
+	// Handle other special CDN cases
+	specialCases := map[string]int{
+		"cloudfront.net": 3, // xxx.cloudfront.net
+		"fastly.com":     3, // xxx.fastly.com
+		"herokuapp.com":  3, // xxx.herokuapp.com
+	}
+
+	domain := strings.Join(parts[len(parts)-2:], ".")
+	if extraParts, exists := specialCases[domain]; exists && len(parts) >= extraParts {
+		return strings.Join(parts[len(parts)-extraParts:], ".")
+	}
+
 	// Return last two parts (e.g., "example.com" from "mail.example.com")
-	return strings.Join(parts[len(parts)-2:], ".")
+	return domain
 }
 
 // IsValidIPAddress checks if string is a valid IP address
@@ -161,4 +179,32 @@ func StringSliceContains(slice []string, value string) bool {
 		}
 	}
 	return false
+}
+
+// DecodeBase64 decodes base64 string to bytes
+func DecodeBase64(encoded string) ([]byte, error) {
+	if encoded == "" {
+		return []byte{}, nil
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode base64: %w", err)
+	}
+	return decoded, nil
+}
+
+// NormalizeHost normalizes hostname by converting to lowercase and removing trailing dot
+func NormalizeHost(hostname string) string {
+	if hostname == "" {
+		return ""
+	}
+
+	// Convert to lowercase
+	hostname = strings.ToLower(hostname)
+
+	// Remove trailing dot
+	hostname = strings.TrimSuffix(hostname, ".")
+
+	return hostname
 }

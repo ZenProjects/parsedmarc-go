@@ -15,9 +15,11 @@ import (
 	"parsedmarc-go/internal/config"
 	"parsedmarc-go/internal/http"
 	"parsedmarc-go/internal/imap"
+	"parsedmarc-go/internal/kafka"
 	"parsedmarc-go/internal/logger"
 	"parsedmarc-go/internal/output"
 	"parsedmarc-go/internal/parser"
+	"parsedmarc-go/internal/smtp"
 	"parsedmarc-go/internal/storage/clickhouse"
 )
 
@@ -81,17 +83,32 @@ func main() {
 			log.Fatal("Invalid output format", zap.String("format", *outputFormat))
 		}
 
+		// Create SMTP client if configured
+		var smtpSender output.SMTPSender
+		if cfg.SMTP.Enabled {
+			smtpSender = smtp.New(&cfg.SMTP, log)
+		}
+
+		// Create Kafka client if configured
+		var kafkaSender output.KafkaSender
+		if cfg.Kafka.Enabled {
+			kafkaSender = kafka.New(&cfg.Kafka, log)
+		}
+
 		// Create output writer
 		outputWriter, err := output.NewWriter(output.Config{
-			Format: format,
-			File:   *outputFile,
+			Format:      format,
+			File:        *outputFile,
+			SMTPSender:  smtpSender,
+			KafkaSender: kafkaSender,
+			Logger:      log,
 		})
 		if err != nil {
 			log.Fatal("Failed to create output writer", zap.Error(err))
 		}
 		defer outputWriter.Close()
 
-		err = parseFileWithOutput(*inputFile, p, outputWriter, log)
+		err = parseFileWithCustomOutput(*inputFile, p, outputWriter, log)
 		if err != nil {
 			log.Fatal("Failed to parse file",
 				zap.String("file", *inputFile),
@@ -214,8 +231,8 @@ func runDaemon(cfg *config.Config, p *parser.Parser, log *zap.Logger) {
 	}
 }
 
-// parseFileWithOutput parses a file and writes output using the specified writer
-func parseFileWithOutput(inputFile string, p *parser.Parser, outputWriter output.Writer, log *zap.Logger) error {
+// parseFileWithCustomOutput parses a file and writes output using the specified writer
+func parseFileWithCustomOutput(inputFile string, p *parser.Parser, outputWriter output.Writer, log *zap.Logger) error {
 	// Check if input is a directory or file
 	stat, err := os.Stat(inputFile)
 	if err != nil {
@@ -223,14 +240,14 @@ func parseFileWithOutput(inputFile string, p *parser.Parser, outputWriter output
 	}
 
 	if stat.IsDir() {
-		return parseDirectoryWithOutput(inputFile, p, outputWriter, log)
+		return parseDirectoryWithCustomOutput(inputFile, p, outputWriter, log)
 	} else {
-		return parseSingleFileWithOutput(inputFile, p, outputWriter, log)
+		return parseSingleFileWithCustomOutput(inputFile, p, outputWriter, log)
 	}
 }
 
-// parseDirectoryWithOutput parses all files in a directory
-func parseDirectoryWithOutput(directory string, p *parser.Parser, outputWriter output.Writer, log *zap.Logger) error {
+// parseDirectoryWithCustomOutput parses all files in a directory
+func parseDirectoryWithCustomOutput(directory string, p *parser.Parser, outputWriter output.Writer, log *zap.Logger) error {
 	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return fmt.Errorf("failed to read directory: %w", err)
@@ -244,7 +261,7 @@ func parseDirectoryWithOutput(directory string, p *parser.Parser, outputWriter o
 		filePath := fmt.Sprintf("%s/%s", directory, entry.Name())
 		log.Info("Processing file", zap.String("file", filePath))
 
-		if err := parseSingleFileWithOutput(filePath, p, outputWriter, log); err != nil {
+		if err := parseSingleFileWithCustomOutput(filePath, p, outputWriter, log); err != nil {
 			log.Warn("Failed to process file", zap.String("file", filePath), zap.Error(err))
 			continue // Continue with other files
 		}
@@ -253,13 +270,33 @@ func parseDirectoryWithOutput(directory string, p *parser.Parser, outputWriter o
 	return nil
 }
 
-// parseSingleFileWithOutput parses a single file and writes output
-func parseSingleFileWithOutput(filePath string, p *parser.Parser, outputWriter output.Writer, log *zap.Logger) error {
+// parseSingleFileWithCustomOutput parses a single file and writes output
+func parseSingleFileWithCustomOutput(filePath string, p *parser.Parser, outputWriter output.Writer, log *zap.Logger) error {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// Use the new ParseWithOutput method
-	return p.ParseWithOutput(data, outputWriter)
+	// Parse and write to output manually to avoid circular dependency
+	return parseAndWriteOutput(data, p, outputWriter)
+}
+
+// parseAndWriteOutput parses data and writes to output writer
+func parseAndWriteOutput(data []byte, p *parser.Parser, outputWriter output.Writer) error {
+	// Try to parse as aggregate report first
+	if aggregateReport, err := p.ParseAggregateFromBytes(data); err == nil {
+		return outputWriter.WriteAggregateReport(aggregateReport)
+	}
+
+	// Try to parse as forensic report
+	if forensicReport, err := p.ParseForensicFromBytes(data); err == nil {
+		return outputWriter.WriteForensicReport(forensicReport)
+	}
+
+	// Try to parse as SMTP TLS report
+	if smtpTLSReport, err := p.ParseSMTPTLSFromBytes(data); err == nil {
+		return outputWriter.WriteSMTPTLSReport(smtpTLSReport)
+	}
+
+	return fmt.Errorf("unable to parse data as any supported report type")
 }

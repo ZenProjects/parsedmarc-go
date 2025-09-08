@@ -7,15 +7,29 @@ import (
 
 	"go.uber.org/zap/zaptest"
 	"parsedmarc-go/internal/config"
+	"parsedmarc-go/internal/metrics"
 )
 
-func TestParser_ParseAggregateReports(t *testing.T) {
-	// Initialize parser with test logger
+// createTestParser creates a parser for testing without reinitializing metrics
+func createTestParser(t *testing.T) *Parser {
 	logger := zaptest.NewLogger(t)
 	cfg := config.ParserConfig{
 		Offline: true, // Use offline mode for tests
 	}
-	parser := New(cfg, nil, logger)
+
+	// Create parser with nil metrics to avoid Prometheus registration conflicts
+	parser := &Parser{
+		config:  cfg,
+		storage: nil,
+		logger:  logger,
+		metrics: &metrics.ParserMetrics{}, // Use empty metrics struct
+	}
+
+	return parser
+}
+
+func TestParser_ParseAggregateReports(t *testing.T) {
+	parser := createTestParser(t)
 
 	tests := []struct {
 		name     string
@@ -82,11 +96,7 @@ func TestParser_ParseAggregateReports(t *testing.T) {
 }
 
 func TestParser_ParseForensicReports(t *testing.T) {
-	logger := zaptest.NewLogger(t)
-	cfg := config.ParserConfig{
-		Offline: true,
-	}
-	parser := New(cfg, nil, logger)
+	parser := createTestParser(t)
 
 	tests := []struct {
 		name     string
@@ -133,11 +143,7 @@ func TestParser_ParseForensicReports(t *testing.T) {
 }
 
 func TestParser_ParseSMTPTLSReports(t *testing.T) {
-	logger := zaptest.NewLogger(t)
-	cfg := config.ParserConfig{
-		Offline: true,
-	}
-	parser := New(cfg, nil, logger)
+	parser := createTestParser(t)
 
 	tests := []struct {
 		name     string
@@ -184,11 +190,7 @@ func TestParser_ParseSMTPTLSReports(t *testing.T) {
 }
 
 func TestParser_ParseInvalidReports(t *testing.T) {
-	logger := zaptest.NewLogger(t)
-	cfg := config.ParserConfig{
-		Offline: true,
-	}
-	parser := New(cfg, nil, logger)
+	parser := createTestParser(t)
 
 	tests := []struct {
 		name     string
@@ -233,11 +235,7 @@ func TestParser_ParseInvalidReports(t *testing.T) {
 }
 
 func TestParser_ParseCompressedFiles(t *testing.T) {
-	logger := zaptest.NewLogger(t)
-	cfg := config.ParserConfig{
-		Offline: true,
-	}
-	parser := New(cfg, nil, logger)
+	parser := createTestParser(t)
 
 	tests := []struct {
 		name     string
@@ -273,13 +271,103 @@ func TestParser_ParseCompressedFiles(t *testing.T) {
 	}
 }
 
+func TestParser_ParseAggregateFromBytes(t *testing.T) {
+	parser := createTestParser(t)
+
+	// Test with a simple aggregate report XML
+	xmlData := `<?xml version="1.0" encoding="UTF-8"?>
+<feedback>
+  <version>1.0</version>
+  <report_metadata>
+    <org_name>Example Corp</org_name>
+    <org_email>postmaster@example.com</org_email>
+    <report_id>test123</report_id>
+    <date_range>
+      <begin>1538204542</begin>
+      <end>1538290942</end>
+    </date_range>
+  </report_metadata>
+  <policy_published>
+    <domain>example.com</domain>
+    <adkim>r</adkim>
+    <aspf>r</aspf>
+    <p>none</p>
+    <sp>none</sp>
+    <pct>100</pct>
+  </policy_published>
+  <record>
+    <row>
+      <source_ip>192.168.1.1</source_ip>
+      <count>1</count>
+      <policy_evaluated>
+        <disposition>none</disposition>
+        <dkim>pass</dkim>
+        <spf>pass</spf>
+      </policy_evaluated>
+    </row>
+    <identifiers>
+      <header_from>example.com</header_from>
+    </identifiers>
+    <auth_results>
+      <spf>
+        <domain>example.com</domain>
+        <result>pass</result>
+      </spf>
+    </auth_results>
+  </record>
+</feedback>`
+
+	report, err := parser.ParseAggregateFromBytes([]byte(xmlData))
+	if err != nil {
+		t.Fatalf("ParseAggregateFromBytes() error = %v", err)
+	}
+
+	if report == nil {
+		t.Fatal("ParseAggregateFromBytes() returned nil report")
+	}
+
+	// Verify basic report fields
+	if report.ReportMetadata.OrgName != "Example Corp" {
+		t.Errorf("Expected org_name 'Example Corp', got '%s'", report.ReportMetadata.OrgName)
+	}
+
+	if report.ReportMetadata.ReportID != "test123" {
+		t.Errorf("Expected report_id 'test123', got '%s'", report.ReportMetadata.ReportID)
+	}
+
+	if report.PolicyPublished.Domain != "example.com" {
+		t.Errorf("Expected domain 'example.com', got '%s'", report.PolicyPublished.Domain)
+	}
+
+	if len(report.Records) != 1 {
+		t.Errorf("Expected 1 record, got %d", len(report.Records))
+	}
+
+	if len(report.Records) > 0 {
+		record := report.Records[0]
+		if record.Source.IPAddress != "192.168.1.1" {
+			t.Errorf("Expected source IP '192.168.1.1', got '%s'", record.Source.IPAddress)
+		}
+		if record.Count != 1 {
+			t.Errorf("Expected count 1, got %d", record.Count)
+		}
+	}
+}
+
 // Benchmark tests
 func BenchmarkParser_ParseAggregateReport(b *testing.B) {
 	logger := zaptest.NewLogger(b)
 	cfg := config.ParserConfig{
 		Offline: true,
 	}
-	parser := New(cfg, nil, logger)
+
+	// Create parser with empty metrics to avoid registration conflicts
+	parser := &Parser{
+		config:  cfg,
+		storage: nil,
+		logger:  logger,
+		metrics: &metrics.ParserMetrics{},
+	}
 
 	samplePath := filepath.Join("../../samples/aggregate", "!example.com!1538204542!1538463818.xml")
 	data, err := os.ReadFile(samplePath)
@@ -301,7 +389,14 @@ func BenchmarkParser_ParseLargeAggregateReport(b *testing.B) {
 	cfg := config.ParserConfig{
 		Offline: true,
 	}
-	parser := New(cfg, nil, logger)
+
+	// Create parser with empty metrics to avoid registration conflicts
+	parser := &Parser{
+		config:  cfg,
+		storage: nil,
+		logger:  logger,
+		metrics: &metrics.ParserMetrics{},
+	}
 
 	samplePath := filepath.Join("../../samples/aggregate", "!large-example.com!1711897200!1711983600.xml")
 	data, err := os.ReadFile(samplePath)

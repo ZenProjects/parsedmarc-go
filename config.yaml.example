@@ -54,3 +54,31 @@ http:
   rate_limit: 60                         # Requests per minute per IP
   rate_burst: 10                         # Burst capacity for rate limiter
   max_upload_size: 52428800              # Max upload size in bytes (50MB)
+
+# SMTP configuration for sending email reports
+smtp:
+  enabled: false                          # Enable SMTP email output
+  host: ""                               # SMTP server hostname
+  port: 25                               # SMTP server port (25, 465, 587)
+  ssl: false                             # Use SSL/TLS connection
+  username: ""                           # SMTP username (if required)
+  password: ""                           # SMTP password (if required)
+  from: "parsedmarc@example.com"         # Email "From" address
+  to:                                    # List of recipient email addresses
+    - "admin@example.com"
+  subject: "parsedmarc report"           # Email subject
+  attachment: ""                         # Optional ZIP attachment filename
+  message: "DMARC report attached"       # Email body text
+
+# Kafka configuration for streaming reports
+kafka:
+  enabled: false                          # Enable Kafka output
+  hosts:                                 # List of Kafka broker hosts
+    - "localhost:9092"
+  username: ""                           # Kafka username (if using SASL)
+  password: ""                           # Kafka password (if using SASL)
+  ssl: true                              # Use SSL/TLS connection
+  skip_verify: false                     # Skip TLS certificate verification
+  aggregate_topic: "dmarc.aggregate"     # Topic for aggregate reports
+  forensic_topic: "dmarc.forensic"       # Topic for forensic reports
+  smtp_tls_topic: "dmarc.smtp_tls"       # Topic for SMTP TLS reports

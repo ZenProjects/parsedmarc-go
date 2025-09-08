@@ -911,3 +911,45 @@ func (p *Parser) extractDomainFromSample(sample string) string {
 	}
 	return ""
 }
+
+// ParseAggregateFromBytes parses aggregate report from byte data
+func (p *Parser) ParseAggregateFromBytes(data []byte) (*AggregateReport, error) {
+	// Extract content if compressed
+	extractedData, err := p.extractReportData(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract report data: %w", err)
+	}
+
+	// Parse as aggregate report
+	return p.parseAggregateXML(extractedData)
+}
+
+// ParseForensicFromBytes parses forensic report from byte data
+func (p *Parser) ParseForensicFromBytes(data []byte) (*ForensicReport, error) {
+	// Extract content if compressed
+	extractedData, err := p.extractReportData(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract report data: %w", err)
+	}
+
+	// Parse as forensic report
+	return p.parseForensicEmail(extractedData)
+}
+
+// ParseSMTPTLSFromBytes parses SMTP TLS report from byte data
+func (p *Parser) ParseSMTPTLSFromBytes(data []byte) (*SMTPTLSReport, error) {
+	// Extract content if compressed
+	extractedData, err := p.extractReportData(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract report data: %w", err)
+	}
+
+	// Parse as SMTP TLS report (JSON)
+	var report SMTPTLSReport
+	err = json.Unmarshal(extractedData, &report)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SMTP TLS report: %w", err)
+	}
+
+	return &report, nil
+}
