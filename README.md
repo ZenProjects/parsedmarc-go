@@ -26,6 +26,18 @@ And i've not converted Elasticsearch, Opensearch, and/or Splunk storage support.
   with premade dashboards
 - 🟩Optionally send reports to Apache Kafka
 
+## Differences with Python parsedmarc
+
+- **Performance**: Faster native Go implementation
+- **Simplicity**: Fewer external dependencies
+- **Native ClickHouse**: Built-in ClickHouse support
+- **Configuration**: YAML configuration with environment variables
+- **Logging**: Structured logging with Zap
+- **Simple HTTP**: Minimalist RFC 7489 compliant HTTP server
+- **Robust IMAP**: IMAP client with automatic reconnection
+- **Metrics**: Built-in Prometheus for complete monitoring
+- **Complete parsing**: Support for aggregate, forensic and SMTP TLS
+
 ## Features
 
 - ✅ DMARC aggregate report parsing (RFC 7489) - supports draft and 1.0 standard formats
@@ -71,6 +83,11 @@ go mod download
 go build -o parsedmarc-go ./cmd/parsedmarc-go
 ```
 
+### Tests
+
+```bash
+go test ./...
+```
 ## Configuration
 
 Copy the example configuration file:
@@ -222,7 +239,7 @@ curl -X POST http://localhost:8080/dmarc/report \
   --data @smtp-tls-report.json
 ```
 
-### Monitoring endpoints
+### Monitoring endpoints (prometheus exporter)
 
 ```bash
 # Service health
@@ -319,55 +336,6 @@ parsedmarc-go implements the following email authentication and reporting standa
   - TLS connection and policy reporting
   - SMTP transport security analysis
 
-## Differences with Python parsedmarc
-
-- **Performance**: Faster native Go implementation
-- **Simplicity**: Fewer external dependencies
-- **Native ClickHouse**: Built-in ClickHouse support
-- **Configuration**: YAML configuration with environment variables
-- **Logging**: Structured logging with Zap
-- **Simple HTTP**: Minimalist RFC 7489 compliant HTTP server
-- **Robust IMAP**: IMAP client with automatic reconnection
-- **Metrics**: Built-in Prometheus for complete monitoring
-- **Complete parsing**: Support for aggregate, forensic and SMTP TLS
-
-## Development
-
-### Project structure
-
-```
-.
-├── cmd/
-│   └── parsedmarc-go/          # Main entry point
-├── internal/
-│   ├── config/                 # Configuration management
-│   ├── http/                   # HTTP server
-│   ├── imap/                   # IMAP client
-│   ├── logger/                 # Logging configuration
-│   ├── parser/                 # Parsing logic
-│   ├── storage/
-│   │   └── clickhouse/         # ClickHouse implementation
-│   ├── utils/                  # Utilities
-│   └── validation/             # Data validation
-├── config.yaml.example        # Example configuration
-├── Dockerfile                  # Docker image
-├── Makefile                    # Build and deployment
-└── go.mod                      # Go modules
-```
-
-### Tests
-
-```bash
-go test ./...
-```
-
-### Contributing
-
-1. Fork the project
-2. Create a feature branch (`git checkout -b feature/new-feature`)
-3. Commit your changes (`git commit -am 'Add new feature'`)
-4. Push to the branch (`git push origin feature/new-feature`)
-5. Create a Pull Request
 
 ## License
 
@@ -376,4 +344,3 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 ## Acknowledgments
 
 - [Sean Whalen](https://github.com/seanthegeek) for the original Python parsedmarc project
-- The Go community for the excellent libraries used
