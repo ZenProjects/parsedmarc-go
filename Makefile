@@ -49,9 +49,9 @@ test: ## Run tests
 	@echo "Running tests..."
 	@go test -v ./...
 
-test-coverage: ## Run tests with coverage
+test-coverage: ## Run tests with coverage (excluding integration tests)
 	@echo "Running tests with coverage..."
-	@go test -v -coverprofile=coverage.out ./...
+	@go test -v -short -coverprofile=coverage.out ./...
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
