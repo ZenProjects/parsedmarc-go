@@ -156,7 +156,8 @@ func LoadDefault() *Config {
 				Format: "json",
 			},
 			Parser: ParserConfig{
-				MaxWorkers: 4,
+				Offline:    false,
+				DNSTimeout: 5,
 			},
 		}
 	}
