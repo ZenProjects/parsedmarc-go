@@ -283,20 +283,29 @@ func parseSingleFileWithCustomOutput(filePath string, p *parser.Parser, outputWr
 
 // parseAndWriteOutput parses data and writes to output writer
 func parseAndWriteOutput(data []byte, p *parser.Parser, outputWriter output.Writer) error {
+	var parseErrors []string
+
 	// Try to parse as aggregate report first
 	if aggregateReport, err := p.ParseAggregateFromBytes(data); err == nil {
 		return outputWriter.WriteAggregateReport(aggregateReport)
+	} else {
+		parseErrors = append(parseErrors, fmt.Sprintf("aggregate: %v", err))
 	}
 
 	// Try to parse as forensic report
 	if forensicReport, err := p.ParseForensicFromBytes(data); err == nil {
 		return outputWriter.WriteForensicReport(forensicReport)
+	} else {
+		parseErrors = append(parseErrors, fmt.Sprintf("forensic: %v", err))
 	}
 
 	// Try to parse as SMTP TLS report
 	if smtpTLSReport, err := p.ParseSMTPTLSFromBytes(data); err == nil {
 		return outputWriter.WriteSMTPTLSReport(smtpTLSReport)
+	} else {
+		parseErrors = append(parseErrors, fmt.Sprintf("smtp_tls: %v", err))
 	}
 
-	return fmt.Errorf("unable to parse data as any supported report type")
+	return fmt.Errorf("unable to parse data as any supported report type. Details: %s",
+		strings.Join(parseErrors, "; "))
 }

@@ -139,6 +139,11 @@ func (s *Server) Start() error {
 	// Simple DMARC endpoint (RFC 7489 compliant)
 	router.POST("/dmarc/report", s.handleDMARCReport)
 	router.PUT("/dmarc/report", s.handleDMARCReport)
+	router.GET("/dmarc/report", s.handleMethodNotAllowed)
+	router.DELETE("/dmarc/report", s.handleMethodNotAllowed)
+	router.PATCH("/dmarc/report", s.handleMethodNotAllowed)
+	router.HEAD("/dmarc/report", s.handleMethodNotAllowed)
+	router.OPTIONS("/dmarc/report", s.handleMethodNotAllowed)
 
 	// Health check
 	router.GET("/health", s.handleHealth)
@@ -332,6 +337,12 @@ func (s *Server) handleRoot(c *gin.Context) {
 	})
 }
 
+func (s *Server) handleMethodNotAllowed(c *gin.Context) {
+	c.JSON(http.StatusMethodNotAllowed, gin.H{
+		"error": "Method not allowed",
+	})
+}
+
 func (s *Server) handleHealth(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "healthy",
@@ -347,9 +358,17 @@ func (s *Server) handleDMARCReport(c *gin.Context) {
 	if err != nil {
 		s.logger.Error("Failed to read request body", zap.Error(err))
 		s.metrics.ReportsFailedTotal.WithLabelValues("unknown", "read_body_failed").Inc()
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Failed to read request body",
-		})
+
+		// Check if error is due to request body being too large
+		if strings.Contains(err.Error(), "request body too large") || strings.Contains(err.Error(), "http: request body too large") {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{
+				"error": "Request entity too large",
+			})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Failed to read request body",
+			})
+		}
 		return
 	}
 

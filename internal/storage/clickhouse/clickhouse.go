@@ -179,6 +179,58 @@ func (s *Storage) createTables() error {
 		return fmt.Errorf("failed to create forensic reports table: %w", err)
 	}
 
+	// Create SMTP TLS reports table
+	smtpTLSTableSQL := `
+	CREATE TABLE IF NOT EXISTS dmarc_smtp_tls_reports (
+		id UUID DEFAULT generateUUIDv4(),
+		organization_name String,
+		begin_date DateTime,
+		end_date DateTime,
+		contact_info String,
+		report_id String,
+		policy_domain String,
+		policy_type String,
+		policy_strings Array(String),
+		mx_host_patterns Array(String),
+		successful_session_count UInt64,
+		failed_session_count UInt64,
+		created_at DateTime DEFAULT now(),
+		INDEX idx_report_id report_id TYPE bloom_filter GRANULARITY 1,
+		INDEX idx_org_name organization_name TYPE bloom_filter GRANULARITY 1,
+		INDEX idx_policy_domain policy_domain TYPE bloom_filter GRANULARITY 1
+	) ENGINE = MergeTree()
+	ORDER BY (begin_date, organization_name)
+	PARTITION BY toYYYYMM(begin_date)`
+
+	if err := s.conn.Exec(ctx, smtpTLSTableSQL); err != nil {
+		return fmt.Errorf("failed to create SMTP TLS reports table: %w", err)
+	}
+
+	// Create SMTP TLS failure details table
+	smtpTLSFailuresTableSQL := `
+	CREATE TABLE IF NOT EXISTS dmarc_smtp_tls_failures (
+		id UUID DEFAULT generateUUIDv4(),
+		report_id String,
+		policy_domain String,
+		result_type String,
+		failed_session_count UInt64,
+		sending_mta_ip Nullable(String),
+		receiving_ip Nullable(String),
+		receiving_mx_hostname Nullable(String),
+		receiving_mx_helo Nullable(String),
+		additional_info_uri Nullable(String),
+		failure_reason_code Nullable(String),
+		created_at DateTime DEFAULT now(),
+		INDEX idx_report_id report_id TYPE bloom_filter GRANULARITY 1,
+		INDEX idx_policy_domain policy_domain TYPE bloom_filter GRANULARITY 1
+	) ENGINE = MergeTree()
+	ORDER BY (report_id, result_type)
+	PARTITION BY toYYYYMM(created_at)`
+
+	if err := s.conn.Exec(ctx, smtpTLSFailuresTableSQL); err != nil {
+		return fmt.Errorf("failed to create SMTP TLS failures table: %w", err)
+	}
+
 	s.logger.Info("ClickHouse tables created successfully")
 	return nil
 }
@@ -355,6 +407,90 @@ func (s *Storage) StoreForensicReport(report *parser.ForensicReport) error {
 	s.logger.Info("Stored forensic report in ClickHouse",
 		zap.String("subject", report.Subject),
 		zap.String("source_ip", report.Source.IPAddress),
+	)
+
+	return nil
+}
+
+// StoreSMTPTLSReport stores an SMTP TLS report in ClickHouse
+func (s *Storage) StoreSMTPTLSReport(report *parser.SMTPTLSReport) error {
+	ctx := context.Background()
+
+	// Insert main report
+	reportSQL := `
+	INSERT INTO dmarc_smtp_tls_reports (
+		organization_name, begin_date, end_date, contact_info, report_id,
+		policy_domain, policy_type, policy_strings, mx_host_patterns,
+		successful_session_count, failed_session_count
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	// For simplicity, we'll store the first policy's data in the main table
+	// In a production system, you might want separate tables for policies
+	var policyDomain, policyType string
+	var policyStrings, mxHostPatterns []string
+	var successfulCount, failedCount int
+
+	if len(report.Policies) > 0 {
+		policy := report.Policies[0]
+		policyDomain = policy.PolicyDomain
+		policyType = policy.PolicyType
+		policyStrings = policy.PolicyStrings
+		mxHostPatterns = policy.MXHostPatterns
+		successfulCount = policy.SuccessfulSessionCount
+		failedCount = policy.FailedSessionCount
+	}
+
+	err := s.conn.Exec(ctx, reportSQL,
+		report.OrganizationName,
+		report.BeginDate,
+		report.EndDate,
+		report.ContactInfo,
+		report.ReportID,
+		policyDomain,
+		policyType,
+		policyStrings,
+		mxHostPatterns,
+		successfulCount,
+		failedCount,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert SMTP TLS report: %w", err)
+	}
+
+	// Insert failure details for all policies
+	if len(report.Policies) > 0 {
+		failureSQL := `
+		INSERT INTO dmarc_smtp_tls_failures (
+			report_id, policy_domain, result_type, failed_session_count,
+			sending_mta_ip, receiving_ip, receiving_mx_hostname, receiving_mx_helo,
+			additional_info_uri, failure_reason_code
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+		for _, policy := range report.Policies {
+			for _, failure := range policy.FailureDetails {
+				err := s.conn.Exec(ctx, failureSQL,
+					report.ReportID,
+					policy.PolicyDomain,
+					failure.ResultType,
+					failure.FailedSessionCount,
+					failure.SendingMTAIP,
+					failure.ReceivingIP,
+					failure.ReceivingMXHostname,
+					failure.ReceivingMXHelo,
+					failure.AdditionalInfoURI,
+					failure.FailureReasonCode,
+				)
+				if err != nil {
+					return fmt.Errorf("failed to insert SMTP TLS failure detail: %w", err)
+				}
+			}
+		}
+	}
+
+	s.logger.Info("Stored SMTP TLS report in ClickHouse",
+		zap.String("org", report.OrganizationName),
+		zap.String("report_id", report.ReportID),
+		zap.Int("policies", len(report.Policies)),
 	)
 
 	return nil

@@ -421,6 +421,12 @@ func (s *Server) setupRouter() http.Handler {
 	// Routes
 	router.POST("/dmarc/report", s.handleDMARCReport)
 	router.PUT("/dmarc/report", s.handleDMARCReport)
+	router.GET("/dmarc/report", s.handleMethodNotAllowed)
+	router.DELETE("/dmarc/report", s.handleMethodNotAllowed)
+	router.PATCH("/dmarc/report", s.handleMethodNotAllowed)
+	router.HEAD("/dmarc/report", s.handleMethodNotAllowed)
+	router.OPTIONS("/dmarc/report", s.handleMethodNotAllowed)
+
 	router.GET("/health", s.handleHealth)
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	router.GET("/", s.handleRoot)

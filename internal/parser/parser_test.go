@@ -201,7 +201,7 @@ func TestParser_ParseInvalidReports(t *testing.T) {
 		{
 			name:     "Invalid aggregate report",
 			path:     "../../samples/aggregate_invalid",
-			filename: "invalid_xml.xml",
+			filename: "report_with_upper_cased_pass.xml",
 			wantErr:  true,
 		},
 		{

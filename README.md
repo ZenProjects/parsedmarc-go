@@ -1,43 +1,88 @@
 # parsedmarc-go
 
-A Go implementation of the DMARC report parser, based on the original Python [parsedmarc](https://github.com/domainaware/parsedmarc) project.
+A **high-performance Go implementation** of the DMARC report parser, based on the original Python [parsedmarc](https://github.com/domainaware/parsedmarc) project.
 
-The conversion to Golang has been done with Claude AI. 
+## 🚀 Recent Major Enhancements
 
-With Claude, I also added support for:
-- Clickhouse storage (with pre-configured Grafana dashboard).
-- HTTP reporting method (RUA/RUF defined with the https/http scheme URI).
-- Prometeus daemon mode monitoring (with IMAP or HTTP reporting).
+**Advanced Email Format Support** - Now handles complex email-based reports from major providers:
+- **MIME multipart parsing** with automatic format detection
+- **Base64 decoding** and **GZIP decompression** support
+- **Provider compatibility**: Google, LinkedIn, Domain.de, Netease, and more
+- **Enhanced error reporting** with precise line numbers for debugging
 
-I haven't converted Elasticsearch/Opensearch/Splunk storage because I don't use these products and can't test them.
+**Robust ClickHouse Integration** - Complete storage solution:
+- **Dedicated SMTP TLS tables** for RFC 8460 reports
+- **Optimized schema** with proper indexing and partitioning
+- **Production-ready** with time-based partitioning and performance indexes
 
-For the same reason, I haven't converted Microsoft Graph and Gmail API support.
+## 📋 Conversion & Enhancements
 
-## Features
+The conversion to Go was done with **Claude AI**, adding significant improvements:
 
-- ✅ DMARC aggregate report parsing ([RFC 7489](https://datatracker.ietf.org/doc/html/rfc7489)) - supports draft and 1.0 standard formats
-- ✅ Forensic/failure report parsing ([RFC 6591 ARF format](https://datatracker.ietf.org/doc/html/rfc6591)) - supports auth-failure reports
-- ✅ SMTP TLS report support ([RFC 8460](https://datatracker.ietf.org/doc/html/rfc8460))
-  - ✅ Compressed file support (GZIP preferred, ZIP legacy support)
-  - ✅ IP address geolocation (with MaxMind database)
-  - ✅ Reverse DNS resolution
+✅ **Core enhancements:**
+- ClickHouse storage with pre-configured Grafana dashboard
+- HTTP reporting method (RUA/RUF with https/http scheme URI)  
+- Prometheus daemon mode monitoring (IMAP + HTTP)
+- **Advanced MIME email parsing** (NEW)
+- **Enhanced error reporting with line numbers** (NEW)
+- **Directory-based output mode** (NEW)
 
+❌ **Not converted** (due to lack of testing capability):
+- Elasticsearch/Opensearch/Splunk storage
+- Microsoft Graph and Gmail API support
 
-- ✅ Can parse reports from an inbox over IMAP 
-  - ✅ TLS/SSL support for IMAP and HTTP
-- ✅ Can parse reports posted over HTTP (POST/PUT methods - [IETF draft-kucherawy-dmarc-base](https://datatracker.ietf.org/doc/html/draft-kucherawy-dmarc-base-02#appendix-B.6))
-  - ✅ Rate limiting and data validation
+## 🌟 Core Features
 
+### 📊 **Report Parsing** - Industry-leading format support
+- ✅ **DMARC Aggregate Reports** ([RFC 7489](https://datatracker.ietf.org/doc/html/rfc7489))
+  - Draft and 1.0 standard formats
+  - Compressed file support (GZIP, ZIP)
+  - Enhanced error reporting with line numbers
+
+- ✅ **Forensic/Failure Reports** ([RFC 6591 ARF](https://datatracker.ietf.org/doc/html/rfc6591)) 
+  - Plain text format parsing
+  - **🆕 MIME multipart email parsing** (LinkedIn, Domain.de, Netease)
+  - **🆕 Base64-encoded attachment support**
+  - Automatic format detection and fallback
+
+- ✅ **SMTP TLS Reports** ([RFC 8460](https://datatracker.ietf.org/doc/html/rfc8460))
+  - Direct JSON format parsing
+  - **🆕 MIME email format parsing** (Google, other providers)
+  - **🆕 Base64 + GZIP compressed attachment pipeline** (`application/tlsrpt+gzip`)
+  - Legacy compressed file support (GZIP, ZIP)
+
+### 🌐 **Data Enhancement**
+- ✅ IP address geolocation (MaxMind database integration)
+- ✅ Reverse DNS resolution with caching
+- ✅ Base domain extraction and normalization
+- ✅ Enhanced error diagnostics with precise line numbers
+
+### 📡 **Multiple Input Methods**
+- ✅ **IMAP Email Processing** - Monitor mailboxes for incoming reports
+  - TLS/SSL connection support
+  - Automatic email archiving/deletion
+  - Configurable check intervals
   
-- ✅ JSON and CSV output formats.
-  - ✅ Output to file, directory, or stdout.
-  - ✅ File mode: concatenates reports in a single file.
-  - ✅ Directory mode: saves each report as a separate file with timestamp.
-- ✅ Optionally, store reports result in ClickHouse database.
-- ✅ Optionally, send reports to Email or Kafka topic.
+- ✅ **HTTP API Server** - Receive reports via HTTP POST/PUT ([IETF draft](https://datatracker.ietf.org/doc/html/draft-kucherawy-dmarc-base-02#appendix-B.6))
+  - Rate limiting and request validation
+  - Multiple content-type support (`application/xml`, `application/json`, `message/rfc822`)
+  - File upload size limits and security
 
+### 💾 **Flexible Output & Storage**
+- ✅ **JSON and CSV output formats** with configurable fields
+- ✅ **Multiple output modes:**
+  - **File mode**: Concatenate all reports in single file
+  - **🆕 Directory mode**: Save each report as separate timestamped file  
+  - **Stdout**: Direct console output for piping
+- ✅ **ClickHouse database storage** with optimized schema
+- ✅ **Email delivery** via SMTP with attachment support
+- ✅ **Kafka streaming** for real-time processing pipelines
 
-- ✅ Built-in Prometheus metrics (for the imap and httpd mode)
+### 📈 **Production Monitoring**
+- ✅ **Built-in Prometheus metrics** for observability
+- ✅ **Health check endpoints** for load balancer integration
+- ✅ **Structured logging** with configurable levels (JSON/console)
+- ✅ **Performance metrics** (parsing duration, success/failure rates)
 
 ## Installation
 
@@ -125,7 +170,14 @@ Usage of parsedmarc-go:
 ### Parsing a single file
 
 ```bash
+# Parse XML aggregate report
 ./parsedmarc-go -input report.xml
+
+# Parse forensic email (with MIME attachments)
+./parsedmarc-go -input forensic-report.eml
+
+# Parse SMTP TLS email (with compressed attachments) 
+./parsedmarc-go -input smtp-tls-report.eml
 ```
 
 ### Output to JSON file
@@ -285,23 +337,31 @@ export HTTP_PORT=8080
 
 ## HTTP Endpoints
 
-### RFC 7489 Compliant (Simple)
+### RFC 7489 Compliant (Multiple formats supported)
 
 ```bash
-# Submit DMARC report
+# Submit DMARC aggregate report (XML)
 curl -X POST http://localhost:8080/dmarc/report \
   -H "Content-Type: application/xml" \
   --data @report.xml
 
-# Submit forensic report
+# Submit forensic report (text or email with MIME attachments)
 curl -X POST http://localhost:8080/dmarc/report \
   -H "Content-Type: text/plain" \
   --data @forensic-report.txt
 
-# Submit SMTP TLS report
+curl -X POST http://localhost:8080/dmarc/report \
+  -H "Content-Type: message/rfc822" \
+  --data @forensic-email.eml
+
+# Submit SMTP TLS report (JSON or email with compressed attachments)
 curl -X POST http://localhost:8080/dmarc/report \
   -H "Content-Type: application/json" \
   --data @smtp-tls-report.json
+
+curl -X POST http://localhost:8080/dmarc/report \
+  -H "Content-Type: message/rfc822" \
+  --data @smtp-tls-email.eml
 ```
 
 ### Monitoring endpoints (prometheus exporter)
@@ -339,6 +399,12 @@ Table for individual aggregate report records.
 
 ### dmarc_forensic_reports
 Table for forensic reports.
+
+### dmarc_smtp_tls_reports
+Table for SMTP TLS reports (RFC 8460).
+
+### dmarc_smtp_tls_failures
+Table for detailed SMTP TLS failure information.
 
 ## ClickHouse Query Examples
 
@@ -384,6 +450,60 @@ GROUP BY source_ip_address, source_country, source_reverse_dns
 ORDER BY message_count DESC 
 LIMIT 20;
 ```
+
+### SMTP TLS success rates by organization
+
+```sql
+SELECT 
+    organization_name,
+    policy_domain,
+    successful_session_count,
+    failed_session_count,
+    round((successful_session_count / (successful_session_count + failed_session_count)) * 100, 2) as success_rate
+FROM dmarc_smtp_tls_reports 
+WHERE begin_date >= today() - 7
+ORDER BY success_rate ASC
+LIMIT 10;
+```
+
+### Most common SMTP TLS failure types
+
+```sql
+SELECT 
+    result_type,
+    count() as failure_count,
+    sum(failed_session_count) as total_failed_sessions
+FROM dmarc_smtp_tls_failures 
+WHERE created_at >= today() - 7
+GROUP BY result_type 
+ORDER BY total_failed_sessions DESC;
+```
+
+## Advanced Email Format Support
+
+parsedmarc-go can automatically parse reports from various email formats, making it compatible with different email service providers:
+
+### Forensic Reports (RUF)
+- **Plain text format**: Simple feedback reports in email body
+- **MIME multipart format**: Reports sent as email attachments
+  - LinkedIn: `multipart/report` with `message/feedback-report` parts
+  - Domain.de: `multipart/report` with named report attachments  
+  - Netease: `multipart/mixed` with **base64-encoded** `message/feedback-report` attachments
+  - Automatic base64 decoding and MIME parsing
+
+### SMTP TLS Reports
+- **Direct JSON format**: Standard JSON reports per RFC 8460
+- **Email-based reports**: Reports sent as email attachments
+  - Google: `multipart/report` with `application/tlsrpt+gzip` attachments
+  - **Automatic base64 decoding** → **GZIP decompression** → JSON parsing
+  - Support for other providers using similar email formats
+
+### How it works
+1. **Format detection**: Automatically detects if input is direct report data or email
+2. **MIME parsing**: Extracts report content from email attachments  
+3. **Encoding handling**: Decodes base64, decompresses GZIP automatically
+4. **Fallback support**: If MIME parsing fails, falls back to simple text parsing
+5. **Enhanced error reporting**: Shows precise line numbers for XML/JSON parsing errors
 
 ## Supported Standards
 
