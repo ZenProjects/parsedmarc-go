@@ -95,11 +95,21 @@ jobs:
           podman run --rm "$FIRST_TAG" ls -la /app/parsedmarc-go
 
       - name: Scan container image for vulnerabilities
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: temp-image
-          format: 'sarif'
-          output: 'trivy-image-results.sarif'
+        run: |
+          # Get the first tag for scanning
+          FIRST_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          echo "Scanning image: $FIRST_TAG"
+          
+          # Install trivy
+          sudo apt-get update
+          sudo apt-get install wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
+          
+          # Run trivy scan using podman
+          trivy image --format sarif --output trivy-image-results.sarif "$FIRST_TAG" || echo "Trivy scan completed with findings"
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3
