@@ -53,6 +53,9 @@ docker run -d -p 8080:8080 \
 
 ## 📚 Complete Documentation Guide
 
+### ⚡ **Quick Start (5 min)**
+[Quick Installation](installation.md#quick-setup) → [First Test](usage.md#quick-test)
+
 ### 🚀 **Getting Started**
 1. **[📦 Installation](installation.md)** 
    - Binary installation, Docker, and building from source
@@ -106,31 +109,3 @@ docker run -d -p 8080:8080 \
     - Code contribution guide
     - Development standards
     - Testing and continuous integration
-
----
-
-## 🎯 Recommended Learning Paths
-
-### 👨‍💻 **For Developers**
-Installation → Configuration → Usage → API → Contributing
-
-### 🔧 **For System Administrators**  
-Installation → Configuration → ClickHouse → Monitoring → Grafana
-
-### 📊 **For Security Analysts**
-Usage → ClickHouse → Grafana → DMARC Standards
-
-### ⚡ **Quick Start (5 min)**
-[Quick Installation](installation.md#quick-setup) → [First Test](usage.md#quick-test)
-
-## Support
-
-- **Documentation**: Complete guides and examples
-- **GitHub Issues**: Bug reports and feature requests
-- **Community**: Join discussions on best practices
-- **Migration Guide**: Step-by-step migration from Python version
-
-[GitHub Repository]: https://github.com/ZenProjects/parsedmarc-go
-[ClickHouse]: https://clickhouse.com/
-[Grafana]: https://grafana.com/
-[Prometheus]: https://prometheus.io/

@@ -4,8 +4,8 @@ parsedmarc-go offers multiple installation methods to suit different environment
 
 ## Prerequisites
 
-- **Operating System**: Linux, macOS, or Windows
-- **Architecture**: x86_64 or ARM64
+- **Operating System**: Linux or Windows
+- **Architecture**: x86_64 
 - **Optional**: Docker for containerized deployment
 - **Optional**: ClickHouse database for data storage
 - **Optional**: MaxMind GeoLite2 database for IP geolocation
@@ -21,27 +21,6 @@ chmod +x parsedmarc-go
 sudo mv parsedmarc-go /usr/local/bin/
 ```
 
-### Linux ARM64
-```bash
-curl -L -o parsedmarc-go https://github.com/ZenProjects/parsedmarc-go/releases/latest/download/parsedmarc-go-linux-arm64
-chmod +x parsedmarc-go
-sudo mv parsedmarc-go /usr/local/bin/
-```
-
-### macOS x86_64
-```bash
-curl -L -o parsedmarc-go https://github.com/ZenProjects/parsedmarc-go/releases/latest/download/parsedmarc-go-darwin-amd64
-chmod +x parsedmarc-go
-sudo mv parsedmarc-go /usr/local/bin/
-```
-
-### macOS ARM64 (M1/M2)
-```bash
-curl -L -o parsedmarc-go https://github.com/ZenProjects/parsedmarc-go/releases/latest/download/parsedmarc-go-darwin-arm64
-chmod +x parsedmarc-go
-sudo mv parsedmarc-go /usr/local/bin/
-```
-
 ### Windows x86_64
 ```powershell
 # Download from GitHub releases page and add to PATH
@@ -49,11 +28,6 @@ Invoke-WebRequest -Uri "https://github.com/ZenProjects/parsedmarc-go/releases/la
 ```
 
 ## Method 2: Docker
-
-### Pull from Registry
-```bash
-docker pull parsedmarc/parsedmarc-go:latest
-```
 
 ### Build from Source
 ```bash
@@ -118,7 +92,6 @@ make test-coverage
 ```bash
 # Build for different platforms
 make build-linux    # Linux x86_64
-make build-darwin   # macOS x86_64
 make build-windows  # Windows x86_64
 make build-all      # All platforms
 ```

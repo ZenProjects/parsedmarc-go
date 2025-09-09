@@ -38,13 +38,7 @@ build-windows: ## Build for Windows
 	@GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(BINARY_PATH)
 	@echo "Binary built: $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe"
 
-build-darwin: ## Build for macOS
-	@echo "Building $(BINARY_NAME) for macOS..."
-	@mkdir -p $(BUILD_DIR)
-	@GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(BINARY_PATH)
-	@echo "Binary built: $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64"
-
-build-all: build-linux build-windows build-darwin ## Build for all platforms
+build-all: build-linux build-windows ## Build for all platforms
 
 clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
@@ -196,6 +190,5 @@ dev-setup: install-deps deps ## Setup development environment
 release: clean build-all ## Create release artifacts
 	@echo "Creating release artifacts..."
 	@cd $(BUILD_DIR) && tar -czf $(BINARY_NAME)-linux-amd64.tar.gz $(BINARY_NAME)-linux-amd64
-	@cd $(BUILD_DIR) && tar -czf $(BINARY_NAME)-darwin-amd64.tar.gz $(BINARY_NAME)-darwin-amd64
 	@cd $(BUILD_DIR) && zip $(BINARY_NAME)-windows-amd64.zip $(BINARY_NAME)-windows-amd64.exe
 	@echo "Release artifacts created in $(BUILD_DIR)/"

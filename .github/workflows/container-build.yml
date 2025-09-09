@@ -137,16 +137,11 @@ jobs:
       packages: write
     strategy:
       matrix:
-        arch: [amd64, arm64]
+        arch: [amd64]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        if: matrix.arch == 'arm64'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
 
       - name: Set up Buildah
         run: |
@@ -232,7 +227,6 @@ jobs:
           
           # Add architecture-specific images to manifest
           podman manifest add "${IMAGE_BASE}:${TAG}" "${IMAGE_BASE}:${TAG}-amd64"
-          podman manifest add "${IMAGE_BASE}:${TAG}" "${IMAGE_BASE}:${TAG}-arm64"
           
           # Push the manifest
           podman manifest push "${IMAGE_BASE}:${TAG}" "${IMAGE_BASE}:${TAG}"

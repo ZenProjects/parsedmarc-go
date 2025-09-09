@@ -95,11 +95,8 @@ jobs:
     needs: [lint, test]
     strategy:
       matrix:
-        goos: [linux, windows, darwin]
-        goarch: [amd64, arm64]
-        exclude:
-          - goos: windows
-            goarch: arm64
+        goos: [linux, windows]
+        goarch: [amd64]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -233,3 +230,111 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
+
+  release:
+    name: Create GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, integration-test, security-scan]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          
+          # Create compressed archives for each platform
+          cd artifacts
+          
+          # Linux binary
+          if [ -d "parsedmarc-go-linux-amd64" ]; then
+            cd parsedmarc-go-linux-amd64
+            tar -czf ../../release-assets/parsedmarc-go-linux-amd64.tar.gz *
+            cd ..
+          fi
+          
+          # Windows binary
+          if [ -d "parsedmarc-go-windows-amd64" ]; then
+            cd parsedmarc-go-windows-amd64
+            zip -r ../../release-assets/parsedmarc-go-windows-amd64.zip *
+            cd ..
+          fi
+          
+          cd ..
+          ls -la release-assets/
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_number=${VERSION#v}" >> $GITHUB_OUTPUT
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat << EOF > release_notes.md
+          ## 🚀 parsedmarc-go ${{ steps.version.outputs.version }}
+          
+          ### 📦 Downloads
+          
+          | Platform | Architecture | Download |
+          |----------|-------------|----------|
+          | Linux    | x86_64      | [parsedmarc-go-linux-amd64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/parsedmarc-go-linux-amd64.tar.gz) |
+          | Windows  | x86_64      | [parsedmarc-go-windows-amd64.zip](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/parsedmarc-go-windows-amd64.zip) |
+          
+          ### 🔧 Quick Installation
+          
+          **Linux:**
+          \`\`\`bash
+          curl -L -o parsedmarc-go.tar.gz https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/parsedmarc-go-linux-amd64.tar.gz
+          tar -xzf parsedmarc-go.tar.gz
+          chmod +x parsedmarc-go-linux-amd64
+          sudo mv parsedmarc-go-linux-amd64 /usr/local/bin/parsedmarc-go
+          \`\`\`
+          
+          **Windows:**
+          \`\`\`powershell
+          Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/parsedmarc-go-windows-amd64.zip" -OutFile "parsedmarc-go.zip"
+          Expand-Archive -Path "parsedmarc-go.zip" -DestinationPath "."
+          \`\`\`
+          
+          ### ✨ What's New
+          
+          See the [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for detailed changes.
+          
+          ### 📚 Documentation
+          
+          - 📖 [Complete Documentation](https://github.com/${{ github.repository }}/tree/main/docs)
+          - ⚡ [Quick Start Guide](https://github.com/${{ github.repository }}/tree/main/docs/installation.md)
+          - ⚙️ [Configuration Guide](https://github.com/${{ github.repository }}/tree/main/docs/configuration.md)
+          - 💡 [Usage Examples](https://github.com/${{ github.repository }}/tree/main/docs/usage.md)
+          
+          ---
+          
+          🤖 **Generated automatically** by [GitHub Actions](https://github.com/${{ github.repository }}/actions)
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.version.outputs.version }}...HEAD
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: "parsedmarc-go ${{ steps.version.outputs.version }}"
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          files: |
+            release-assets/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

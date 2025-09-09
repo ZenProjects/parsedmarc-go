@@ -281,39 +281,6 @@ groups:
           description: "parsedmarc-go has {{ $value }} items in processing queue"
 ```
 
-### Notification Channels
-
-Configure AlertManager to send notifications:
-
-```yaml
-# alertmanager.yml
-route:
-  group_by: ['alertname']
-  group_wait: 10s
-  group_interval: 10s
-  repeat_interval: 1h
-  receiver: 'web.hook'
-
-receivers:
-- name: 'web.hook'
-  slack_configs:
-  - api_url: 'YOUR_SLACK_WEBHOOK_URL'
-    channel: '#dmarc-alerts'
-    title: 'DMARC Alert: {{ .GroupLabels.alertname }}'
-    text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
-
-  email_configs:
-  - to: 'alerts@example.com'
-    from: 'alertmanager@example.com'
-    smarthost: 'smtp.example.com:587'
-    subject: 'DMARC Alert: {{ .GroupLabels.alertname }}'
-    body: |
-      {{ range .Alerts }}
-      Alert: {{ .Annotations.summary }}
-      Description: {{ .Annotations.description }}
-      {{ end }}
-```
-
 ## Health Checks
 
 ### Basic Health Check
@@ -385,58 +352,6 @@ parsedmarc-go uses structured JSON logging:
 }
 ```
 
-### Log Aggregation
-
-#### ELK Stack
-
-```yaml
-# logstash.conf
-input {
-  file {
-    path => "/var/log/parsedmarc-go/*.log"
-    codec => "json"
-    type => "parsedmarc-go"
-  }
-}
-
-filter {
-  if [type] == "parsedmarc-go" {
-    date {
-      match => [ "timestamp", "ISO8601" ]
-    }
-  }
-}
-
-output {
-  elasticsearch {
-    hosts => ["elasticsearch:9200"]
-    index => "parsedmarc-go-%{+YYYY.MM.dd}"
-  }
-}
-```
-
-#### Loki
-
-```yaml
-# promtail.yaml
-server:
-  http_listen_port: 9080
-
-positions:
-  filename: /tmp/positions.yaml
-
-clients:
-  - url: http://loki:3100/loki/api/v1/push
-
-scrape_configs:
-  - job_name: parsedmarc-go
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: parsedmarc-go
-          __path__: /var/log/parsedmarc-go/*.log
-```
 
 ## Performance Monitoring
 
@@ -448,38 +363,10 @@ scrape_configs:
 4. **Resource Usage**: CPU, memory, and network utilization
 5. **Queue Depth**: Backlog of pending operations
 
-### Performance Benchmarking
-
-```bash
-# Generate test reports for benchmarking
-for i in {1..100}; do
-  curl -X POST http://localhost:8080/dmarc/report \
-    -H "Content-Type: application/xml" \
-    -d @test-report.xml &
-done
-wait
 
 # Check processing metrics
 curl -s http://localhost:8080/metrics | grep parsedmarc_reports_processed_total
 ```
-
-### Capacity Planning
-
-Monitor these metrics for capacity planning:
-
-- Peak processing rates during business hours
-- Memory usage patterns
-- Database connection utilization
-- Network bandwidth consumption
-
-## Troubleshooting
-
-### Common Issues
-
-1. **High error rates**: Check log files and database connectivity
-2. **Memory leaks**: Monitor memory usage trends
-3. **Slow processing**: Analyze processing duration histograms
-4. **Connection issues**: Monitor connection pool metrics
 
 ### Debug Metrics
 

@@ -687,25 +687,3 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 ```
-
-## Best Practices
-
-1. **Security**
-   - Use dedicated database user with minimal privileges
-   - Store sensitive credentials in environment variables
-   - Enable TLS for all network communications
-
-2. **Performance**
-   - Use ClickHouse materialized views for complex queries
-   - Partition tables by date for better query performance
-   - Monitor resource usage and adjust worker counts accordingly
-
-3. **Reliability**
-   - Implement proper backup strategies for ClickHouse data
-   - Use health checks in production deployments
-   - Monitor metrics and set up alerting
-
-4. **Maintenance**
-   - Regular log rotation
-   - Database maintenance and optimization
-   - Keep parsedmarc-go updated to latest version
