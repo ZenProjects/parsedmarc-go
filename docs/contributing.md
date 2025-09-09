@@ -4,4 +4,4 @@
 
 Please report bugs on the GitHub issue tracker
 
-<https://github.com/domainaware/parsedmarc/issues>
+<https://github.com/ZenProjects/parsedmarc-go/issues>
