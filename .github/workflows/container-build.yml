@@ -6,7 +6,9 @@ on:
   workflow_dispatch:
 
 env:
-  REGISTRY: ghcr.io
+  GHCR_REGISTRY: ghcr.io
+  GCR_REGISTRY: gcr.io
+  GCR_PROJECT_ID: ${{ secrets.GCR_PROJECT_ID }}
 
 jobs:
   build-and-push:
@@ -29,18 +31,38 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y buildah podman
           
-      - name: Log in to Container Registry
+      - name: Log in to GitHub Container Registry
         uses: redhat-actions/podman-login@v1
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Log in to Google Container Registry
+        if: env.GCR_PROJECT_ID != ''
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.GCR_REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.GCR_SERVICE_ACCOUNT_KEY }}
 
-      - name: Extract metadata
-        id: meta
+      - name: Extract metadata for GHCR
+        id: meta-ghcr
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+            
+      - name: Extract metadata for GCR
+        id: meta-gcr
+        if: env.GCR_PROJECT_ID != ''
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GCR_REGISTRY }}/${{ env.GCR_PROJECT_ID }}/${{ env.IMAGE_NAME }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -70,22 +92,33 @@ jobs:
             -t temp-image \
             .
           
-          # Tag with all the tags from metadata
-          echo "${{ steps.meta.outputs.tags }}" | while read -r tag; do
+          # Tag with GHCR tags
+          echo "${{ steps.meta-ghcr.outputs.tags }}" | while read -r tag; do
             if [ -n "$tag" ]; then
               buildah tag temp-image "$tag"
-              echo "Tagged: $tag"
+              echo "Tagged GHCR: $tag"
             fi
           done
           
+          # Tag with GCR tags if enabled
+          if [ "${{ env.GCR_PROJECT_ID }}" != "" ]; then
+            echo "${{ steps.meta-gcr.outputs.tags }}" | while read -r tag; do
+              if [ -n "$tag" ]; then
+                buildah tag temp-image "$tag"
+                echo "Tagged GCR: $tag"
+              fi
+            done
+          fi
+          
           # Set output for later use
-          echo "image-tags=${{ steps.meta.outputs.tags }}" >> $GITHUB_OUTPUT
+          echo "ghcr-tags=${{ steps.meta-ghcr.outputs.tags }}" >> $GITHUB_OUTPUT
+          echo "gcr-tags=${{ steps.meta-gcr.outputs.tags }}" >> $GITHUB_OUTPUT
           echo "image-digest=$(buildah inspect --format='{{.FromImageDigest}}' temp-image)" >> $GITHUB_OUTPUT
 
       - name: Test container image
         run: |
           # Get the first tag for testing
-          FIRST_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          FIRST_TAG=$(echo "${{ steps.meta-ghcr.outputs.tags }}" | head -n1)
           echo "Testing image: $FIRST_TAG"
           
           # Test that the image runs and shows help
@@ -96,9 +129,9 @@ jobs:
 
       - name: Scan container image for vulnerabilities
         run: |
-          # Get the first tag for scanning
-          FIRST_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
-          echo "Scanning image: $FIRST_TAG"
+          # Save the image to a tarball that Trivy can scan
+          echo "Saving temp-image to tarball for scanning"
+          podman save temp-image -o temp-image.tar
           
           # Install trivy
           sudo apt-get update
@@ -108,8 +141,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install trivy
           
-          # Run trivy scan using podman
-          trivy image --format sarif --output trivy-image-results.sarif "$FIRST_TAG" || echo "Trivy scan completed with findings"
+          # Run trivy scan on the tarball
+          trivy image --input temp-image.tar --format sarif --output trivy-image-results.sarif || echo "Trivy scan completed with findings"
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3
@@ -119,20 +152,32 @@ jobs:
 
       - name: Push container image
         run: |
-          # Push all tags
-          echo "${{ steps.meta.outputs.tags }}" | while read -r tag; do
+          # Push GHCR tags
+          echo "${{ steps.build-image.outputs.ghcr-tags }}" | while read -r tag; do
             if [ -n "$tag" ]; then
-              echo "Pushing: $tag"
+              echo "Pushing to GHCR: $tag"
               buildah push "$tag"
             fi
           done
+          
+          # Push GCR tags if enabled
+          if [ "${{ env.GCR_PROJECT_ID }}" != "" ]; then
+            echo "${{ steps.build-image.outputs.gcr-tags }}" | while read -r tag; do
+              if [ -n "$tag" ]; then
+                echo "Pushing to GCR: $tag"
+                buildah push "$tag"
+              fi
+            done
+          fi
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0
-        with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          format: spdx-json
-          output-file: sbom.spdx.json
+        run: |
+          # Use the tarball for SBOM generation since it's more reliable
+          # Install syft for SBOM generation
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          
+          # Generate SBOM from the image tarball
+          syft packages temp-image.tar -o spdx-json=sbom.spdx.json
 
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
