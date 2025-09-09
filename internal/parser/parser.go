@@ -345,7 +345,19 @@ func (p *Parser) extractFromGzip(reader io.Reader) ([]byte, error) {
 
 // parseAsAggregateReport tries to parse data as aggregate DMARC report
 func (p *Parser) parseAsAggregateReport(data []byte) error {
-	report, err := p.parseAggregateXML(data)
+	var report *AggregateReport
+	var err error
+
+	// Check if this looks like an email message
+	dataStr := string(data)
+	if strings.Contains(dataStr, "Content-Type:") && strings.Contains(dataStr, "MIME-Version:") {
+		// Try to extract aggregate report from email MIME parts
+		report, err = p.parseAggregateFromEmail(data)
+	} else {
+		// Direct XML parsing
+		report, err = p.parseAggregateXML(data)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -361,6 +373,117 @@ func (p *Parser) parseAsAggregateReport(data []byte) error {
 		zap.String("report_id", report.ReportMetadata.ReportID),
 		zap.Int("records", len(report.Records)),
 	)
+
+	return nil
+}
+
+// parseAggregateFromEmail parses aggregate DMARC report from email content
+func (p *Parser) parseAggregateFromEmail(data []byte) (*AggregateReport, error) {
+	body := string(data)
+
+	// Extract attachments from MIME parts
+	attachmentData := p.extractAggregateFromMIME(body)
+	if attachmentData == nil {
+		return nil, fmt.Errorf("no aggregate report attachment found in email")
+	}
+
+	return p.parseAggregateXML(attachmentData)
+}
+
+// extractAggregateFromMIME extracts aggregate report attachments from MIME multipart message
+func (p *Parser) extractAggregateFromMIME(body string) []byte {
+	// Find Content-Type header
+	lines := strings.Split(body, "\n")
+	var contentType string
+	var boundary string
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(strings.ToLower(line), "content-type:") {
+			contentType = line
+			// Extract boundary if present
+			if strings.Contains(strings.ToLower(line), "boundary=") {
+				parts := strings.Split(line, "boundary=")
+				if len(parts) > 1 {
+					boundary = strings.Trim(strings.Fields(parts[1])[0], "\"")
+				}
+			}
+			break
+		}
+	}
+
+	if boundary == "" || !strings.Contains(strings.ToLower(contentType), "multipart") {
+		return nil
+	}
+
+	// Find start of MIME body (after headers)
+	emptyLineIndex := strings.Index(body, "\n\n")
+	if emptyLineIndex == -1 {
+		emptyLineIndex = strings.Index(body, "\r\n\r\n")
+		if emptyLineIndex == -1 {
+			return nil
+		}
+	}
+
+	mimeBody := body[emptyLineIndex+2:]
+
+	// Parse MIME multipart
+	mediaType, params, err := mime.ParseMediaType(contentType[13:]) // Skip "Content-Type: "
+	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
+		return nil
+	}
+
+	mr := multipart.NewReader(strings.NewReader(mimeBody), params["boundary"])
+
+	// Process each MIME part
+	for {
+		part, err := mr.NextPart()
+		if err != nil {
+			break
+		}
+
+		// Check if this part is an attachment (ZIP, GZIP, or XML)
+		disposition := part.Header.Get("Content-Disposition")
+		contentType := part.Header.Get("Content-Type")
+
+		if strings.Contains(strings.ToLower(disposition), "attachment") ||
+			strings.Contains(strings.ToLower(contentType), "application/zip") ||
+			strings.Contains(strings.ToLower(contentType), "application/gzip") ||
+			strings.Contains(strings.ToLower(contentType), "application/x-gzip") ||
+			strings.Contains(strings.ToLower(contentType), "text/xml") ||
+			strings.Contains(strings.ToLower(contentType), "application/xml") {
+
+			// Read the attachment content
+			attachmentData, err := io.ReadAll(part)
+			if err != nil {
+				continue
+			}
+
+			// Check if it's base64 encoded
+			encoding := part.Header.Get("Content-Transfer-Encoding")
+			if strings.ToLower(encoding) == "base64" {
+				decoded, err := base64.StdEncoding.DecodeString(string(attachmentData))
+				if err != nil {
+					continue
+				}
+				attachmentData = decoded
+			}
+
+			// Try to extract content if it's compressed
+			extractedData, err := p.extractReportData(attachmentData)
+			if err != nil {
+				// If extraction fails, maybe it's already XML
+				if strings.Contains(strings.ToLower(string(attachmentData)), "<?xml") {
+					return attachmentData
+				}
+				continue
+			}
+
+			return extractedData
+		}
+
+		part.Close()
+	}
 
 	return nil
 }
