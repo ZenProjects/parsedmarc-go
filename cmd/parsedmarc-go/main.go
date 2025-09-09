@@ -63,7 +63,15 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
 		os.Exit(1)
 	}
-	defer log.Sync()
+	defer func() {
+		if err := log.Sync(); err != nil {
+			// Ignore sync errors on stdout/stderr as they're common and expected
+			if !strings.Contains(err.Error(), "inappropriate ioctl for device") &&
+				!strings.Contains(err.Error(), "invalid argument") {
+				fmt.Fprintf(os.Stderr, "Failed to sync logger: %v\n", err)
+			}
+		}
+	}()
 
 	log.Info("Starting parsedmarc-go",
 		zap.String("version", version),
@@ -179,7 +187,9 @@ func runDaemon(cfg *config.Config, p *parser.Parser, log *zap.Logger) {
 						log.Error("Failed to process IMAP messages", zap.Error(err))
 					}
 
-					imapClient.Disconnect()
+					if err := imapClient.Disconnect(); err != nil {
+						log.Error("Failed to disconnect IMAP client during processing", zap.Error(err))
+					}
 
 					// Wait before next check
 					select {

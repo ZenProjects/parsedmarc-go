@@ -173,7 +173,9 @@ func (p *Parser) extractReport(filePath string) ([]byte, error) {
 	header = header[:n]
 
 	// Reset file position
-	file.Seek(0, 0)
+	if _, err := file.Seek(0, 0); err != nil {
+		return nil, fmt.Errorf("failed to reset file position: %w", err)
+	}
 
 	// Check for ZIP file magic
 	if len(header) >= 4 && string(header[:4]) == "PK\x03\x04" {

@@ -142,9 +142,10 @@ func TestClickHouse_StoreAggregateReport(t *testing.T) {
 		},
 	}
 
-	// Just verify the structure is valid
-	if report == nil {
-		t.Error("Report should not be nil")
+	// Just verify the structure is valid - report is guaranteed to be non-nil
+	// since we just created it above
+	if len(report.Records) == 0 {
+		t.Error("Report should have at least one record")
 	}
 
 	if len(report.Records) == 0 {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,8 +27,8 @@ func New(logger *zap.Logger) *Validator {
 
 // ValidationResult contains the result of validation
 type ValidationResult struct {
-	Valid   bool     `json:"valid"`
-	Errors  []string `json:"errors,omitempty"`
+	Valid    bool     `json:"valid"`
+	Errors   []string `json:"errors,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
 }
 
@@ -44,9 +45,9 @@ func (v *Validator) ValidateXMLReport(data []byte) *ValidationResult {
 
 	// Parse and validate structure
 	var feedback struct {
-		XMLName         xml.Name `xml:"feedback"`
-		Version         string   `xml:"version,omitempty"`
-		ReportMetadata  struct {
+		XMLName        xml.Name `xml:"feedback"`
+		Version        string   `xml:"version,omitempty"`
+		ReportMetadata struct {
 			OrgName   string `xml:"org_name"`
 			Email     string `xml:"email"`
 			ReportID  string `xml:"report_id"`
@@ -284,8 +285,8 @@ func (v *Validator) validateDateRange(beginStr, endStr string) error {
 func (v *Validator) parseTimestamp(timestamp string) (time.Time, error) {
 	// Try Unix timestamp first
 	if len(timestamp) == 10 {
-		if t, err := time.Parse("1136239445", timestamp); err == nil {
-			return t.UTC(), nil
+		if unixTime, err := strconv.ParseInt(timestamp, 10, 64); err == nil {
+			return time.Unix(unixTime, 0).UTC(), nil
 		}
 	}
 
@@ -312,8 +313,8 @@ func (v *Validator) parseTimestamp(timestamp string) (time.Time, error) {
 
 func (v *Validator) containsDangerousChars(input string) bool {
 	dangerousChars := []string{
-		"<", ">", "&", "\"", "'", 
-		"\x00", "\r", "\n", 
+		"<", ">", "&", "\"", "'",
+		"\x00", "\r", "\n",
 		"../", "..\\",
 		"<script", "javascript:",
 		"<?php", "<%",
@@ -333,7 +334,7 @@ func (v *Validator) containsDangerousChars(input string) bool {
 func (v *Validator) SanitizeInput(input string) string {
 	// Remove null bytes
 	input = strings.ReplaceAll(input, "\x00", "")
-	
+
 	// Remove other control characters except tab, newline, carriage return
 	result := strings.Map(func(r rune) rune {
 		if r == 0 || (r > 0 && r < 32 && r != 9 && r != 10 && r != 13) {
@@ -371,7 +372,7 @@ func (v *Validator) ValidateBatch(reports [][]byte, maxReports int) *ValidationR
 				result.Errors = append(result.Errors, fmt.Sprintf("Report %d: %s", i+1, err))
 			}
 		}
-		
+
 		for _, warning := range reportResult.Warnings {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("Report %d: %s", i+1, warning))
 		}
