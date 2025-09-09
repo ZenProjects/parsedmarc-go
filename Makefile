@@ -63,9 +63,6 @@ test-http: ## Run HTTP server tests only
 	@echo "Running HTTP server tests..."
 	@go test -v ./internal/http/
 
-test-integration: ## Run integration tests (requires ClickHouse)
-	@echo "Running integration tests..."
-	@go test -v ./internal/storage/clickhouse/
 
 test-short: ## Run tests excluding integration tests
 	@echo "Running short tests..."
