@@ -618,9 +618,36 @@ curl -X POST http://localhost:8080/dmarc/report \
   --data @test-report.xml
 ```
 
-## Documentations
+## 📚 Documentation
 
-[for documentations details](docs/index.md).
+### 📖 Table of Contents
+
+#### 🚀 **Getting Started**
+- **[📋 Complete Documentation](docs/index.md)** - Overview and architecture
+- **[⚡ Installation](docs/installation.md)** - Installation and initial setup  
+- **[⚙️ Configuration](docs/configuration.md)** - Detailed configuration options
+- **[💡 Usage](docs/usage.md)** - Usage guide and examples
+
+#### 🗄️ **Database and Visualization**
+- **[🗃️ ClickHouse](docs/clickhouse.md)** - ClickHouse configuration and optimization
+- **[📊 Grafana](docs/grafana.md)** - Dashboards and visualizations
+- **[📈 Monitoring](docs/monitoring.md)** - Prometheus metrics and monitoring
+
+#### 🔌 **API and Integrations**  
+- **[🌐 HTTP API](docs/api.md)** - HTTP endpoints and integrations
+- **[📧 DMARC Mailing Lists](docs/mailing-lists.md)** - Mailing list configuration
+
+#### 📖 **Technical References**
+- **[🔒 DMARC Specification](docs/dmarc.md)** - DMARC standards details
+- **[🤝 Contributing](docs/contributing.md)** - Project contribution guide
+
+### 🔗 Quick Links
+- **[Quick Setup](docs/installation.md#quick-setup)** - Get started in 5 minutes
+- **[API Examples](docs/api.md#examples)** - Ready-to-use HTTP integrations
+- **[Grafana Dashboards](docs/grafana.md#dashboards)** - Pre-configured visualizations
+- **[Prometheus Metrics](docs/monitoring.md#metrics)** - Complete monitoring
+
+> 💡 **Tip**: Start with the [complete documentation](docs/index.md) for an overview, then check the [installation guide](docs/installation.md) to get started quickly.
 
 ## License
 

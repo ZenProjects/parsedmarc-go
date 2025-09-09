@@ -61,20 +61,77 @@ docker run -d -p 8080:8080 \
 | Report Processing | ~100 reports/min | ~1000+ reports/min |
 | Binary Size | N/A (+ Python runtime) | ~25MB |
 
-```{toctree}
-:caption: 'Contents'
-:maxdepth: 2
+## 📚 Complete Documentation Guide
 
-installation
-configuration
-usage
-clickhouse
-grafana
-monitoring
-api
-dmarc
-contributing
-```
+### 🚀 **Phase 1: Getting Started**
+1. **[📦 Installation](installation.md)** 
+   - Binary installation, Docker, and building from source
+   - Prerequisites setup (Go, ClickHouse, MaxMind)
+   - Quick setup in 5 minutes
+
+2. **[⚙️ Configuration](configuration.md)**
+   - Complete configuration file with examples
+   - Environment variables and CLI parameters
+   - IMAP, HTTP, ClickHouse, and monitoring configuration
+
+### 🔧 **Phase 2: Usage**  
+3. **[💡 Usage Guide](usage.md)**
+   - File and directory processing
+   - Daemon mode (IMAP + HTTP)
+   - Output formats and advanced options
+
+4. **[🌐 HTTP API](api.md)**
+   - Report submission endpoints
+   - Email provider integrations
+   - Authentication and security
+
+### 📊 **Phase 3: Storage and Visualization**
+5. **[🗃️ ClickHouse](clickhouse.md)**
+   - Optimized database schema
+   - Analysis and reporting queries
+   - Performance and optimizations
+
+6. **[📊 Grafana](grafana.md)**
+   - Dashboard installation and configuration
+   - Pre-configured visualizations
+   - Customization and alerting
+
+### 📈 **Phase 4: Production and Monitoring**
+7. **[📈 Monitoring](monitoring.md)**
+   - Detailed Prometheus metrics  
+   - Health checks and observability
+   - Alerting and surveillance
+
+8. **[📧 Mailing Lists](mailing-lists.md)**
+   - SMTP configuration for reports
+   - Integration with notification systems
+
+### 📖 **Phase 5: Reference**
+9. **[🔒 DMARC Standards](dmarc.md)**
+   - Detailed RFC specifications
+   - Supported report formats
+   - Compatibility and extensions
+
+10. **[🤝 Contributing](contributing.md)**
+    - Code contribution guide
+    - Development standards
+    - Testing and continuous integration
+
+---
+
+## 🎯 Recommended Learning Paths
+
+### 👨‍💻 **For Developers**
+Installation → Configuration → Usage → API → Contributing
+
+### 🔧 **For System Administrators**  
+Installation → Configuration → ClickHouse → Monitoring → Grafana
+
+### 📊 **For Security Analysts**
+Usage → ClickHouse → Grafana → DMARC Standards
+
+### ⚡ **Quick Start (5 min)**
+[Quick Installation](installation.md#quick-setup) → [First Test](usage.md#quick-test)
 
 ## Support
 
