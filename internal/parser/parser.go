@@ -302,7 +302,17 @@ func (p *Parser) extractFromGzipData(data []byte) ([]byte, error) {
 	}
 	defer gzReader.Close()
 
-	return io.ReadAll(gzReader)
+	// Read the content - if we get an "unexpected EOF", try to return what we've read
+	content, err := io.ReadAll(gzReader)
+	if err != nil && err.Error() == "unexpected EOF" {
+		// If we got some content before the error, return it
+		if len(content) > 0 {
+			p.logger.Debug("GZIP read completed with unexpected EOF, returning partial content",
+				zap.Int("contentLength", len(content)))
+			return content, nil
+		}
+	}
+	return content, err
 }
 
 // extractFromZip extracts content from ZIP file
@@ -350,7 +360,8 @@ func (p *Parser) parseAsAggregateReport(data []byte) error {
 
 	// Check if this looks like an email message
 	dataStr := string(data)
-	if strings.Contains(dataStr, "Content-Type:") && strings.Contains(dataStr, "MIME-Version:") {
+	dataStrLower := strings.ToLower(dataStr)
+	if strings.Contains(dataStrLower, "content-type:") && strings.Contains(dataStrLower, "mime-version:") {
 		// Try to extract aggregate report from email MIME parts
 		report, err = p.parseAggregateFromEmail(data)
 	} else {
@@ -381,8 +392,14 @@ func (p *Parser) parseAsAggregateReport(data []byte) error {
 func (p *Parser) parseAggregateFromEmail(data []byte) (*AggregateReport, error) {
 	body := string(data)
 
-	// Extract attachments from MIME parts
+	// Try multipart MIME parsing first
 	attachmentData := p.extractAggregateFromMIME(body)
+	if attachmentData != nil {
+		return p.parseAggregateXML(attachmentData)
+	}
+
+	// Try single attachment email parsing
+	attachmentData = p.extractAggregateFromSingleAttachment(body)
 	if attachmentData == nil {
 		return nil, fmt.Errorf("no aggregate report attachment found in email")
 	}
@@ -392,22 +409,53 @@ func (p *Parser) parseAggregateFromEmail(data []byte) (*AggregateReport, error) 
 
 // extractAggregateFromMIME extracts aggregate report attachments from MIME multipart message
 func (p *Parser) extractAggregateFromMIME(body string) []byte {
-	// Find Content-Type header
+	// Find Content-Type header and boundary (can be on multiple lines)
 	lines := strings.Split(body, "\n")
 	var contentType string
 	var boundary string
+	var inContentType bool
 
 	for _, line := range lines {
+		originalLine := line
 		line = strings.TrimSpace(line)
+
+		// Check if this is the start of Content-Type header
 		if strings.HasPrefix(strings.ToLower(line), "content-type:") {
 			contentType = line
-			// Extract boundary if present
-			if strings.Contains(strings.ToLower(line), "boundary=") {
-				parts := strings.Split(line, "boundary=")
-				if len(parts) > 1 {
-					boundary = strings.Trim(strings.Fields(parts[1])[0], "\"")
+			inContentType = true
+		} else if inContentType && (strings.HasPrefix(originalLine, " ") || strings.HasPrefix(originalLine, "\t")) {
+			// This is a continuation of the Content-Type header
+			contentType += " " + strings.TrimSpace(originalLine)
+		} else if inContentType {
+			// End of Content-Type header, process it
+			inContentType = false
+		}
+
+		// Check if we've found boundary anywhere in the accumulated contentType
+		if strings.Contains(strings.ToLower(contentType), "boundary=") && boundary == "" {
+			if parts := strings.Split(strings.ToLower(contentType), "boundary="); len(parts) > 1 {
+				boundaryPart := strings.TrimSpace(parts[1])
+				// Extract the boundary value (remove quotes and any trailing text)
+				if strings.HasPrefix(boundaryPart, "\"") {
+					// Quoted boundary
+					endQuote := strings.Index(boundaryPart[1:], "\"")
+					if endQuote != -1 {
+						boundary = boundaryPart[1 : endQuote+1]
+					}
+				} else {
+					// Unquoted boundary - take first word
+					boundary = strings.Fields(boundaryPart)[0]
 				}
 			}
+		}
+
+		// Stop looking after we've processed Content-Type and found boundary
+		if !inContentType && boundary != "" {
+			break
+		}
+
+		// Stop looking if we hit an empty line and we're not in Content-Type
+		if !inContentType && line == "" {
 			break
 		}
 	}
@@ -439,12 +487,20 @@ func (p *Parser) extractAggregateFromMIME(body string) []byte {
 	for {
 		part, err := mr.NextPart()
 		if err != nil {
+			p.logger.Debug("MIME part iteration ended", zap.Error(err))
 			break
 		}
 
 		// Check if this part is an attachment (ZIP, GZIP, or XML)
 		disposition := part.Header.Get("Content-Disposition")
 		contentType := part.Header.Get("Content-Type")
+		encoding := part.Header.Get("Content-Transfer-Encoding")
+
+		p.logger.Debug("Processing MIME part",
+			zap.String("disposition", disposition),
+			zap.String("contentType", contentType),
+			zap.String("encoding", encoding),
+		)
 
 		if strings.Contains(strings.ToLower(disposition), "attachment") ||
 			strings.Contains(strings.ToLower(contentType), "application/zip") ||
@@ -453,32 +509,41 @@ func (p *Parser) extractAggregateFromMIME(body string) []byte {
 			strings.Contains(strings.ToLower(contentType), "text/xml") ||
 			strings.Contains(strings.ToLower(contentType), "application/xml") {
 
+			p.logger.Debug("Found potential attachment part")
+
 			// Read the attachment content
 			attachmentData, err := io.ReadAll(part)
 			if err != nil {
+				p.logger.Debug("Failed to read attachment data", zap.Error(err))
 				continue
 			}
 
+			p.logger.Debug("Read attachment data", zap.Int("size", len(attachmentData)))
+
 			// Check if it's base64 encoded
-			encoding := part.Header.Get("Content-Transfer-Encoding")
 			if strings.ToLower(encoding) == "base64" {
 				decoded, err := base64.StdEncoding.DecodeString(string(attachmentData))
 				if err != nil {
+					p.logger.Debug("Failed to decode base64", zap.Error(err))
 					continue
 				}
 				attachmentData = decoded
+				p.logger.Debug("Decoded base64 data", zap.Int("decodedSize", len(attachmentData)))
 			}
 
 			// Try to extract content if it's compressed
 			extractedData, err := p.extractReportData(attachmentData)
 			if err != nil {
+				p.logger.Debug("Failed to extract compressed data", zap.Error(err))
 				// If extraction fails, maybe it's already XML
 				if strings.Contains(strings.ToLower(string(attachmentData)), "<?xml") {
+					p.logger.Debug("Returning raw XML data")
 					return attachmentData
 				}
 				continue
 			}
 
+			p.logger.Debug("Successfully extracted report data", zap.Int("extractedSize", len(extractedData)))
 			return extractedData
 		}
 
@@ -486,6 +551,78 @@ func (p *Parser) extractAggregateFromMIME(body string) []byte {
 	}
 
 	return nil
+}
+
+// extractAggregateFromSingleAttachment extracts aggregate report from single attachment email (like Mimecast format)
+func (p *Parser) extractAggregateFromSingleAttachment(body string) []byte {
+	lines := strings.Split(body, "\n")
+	var contentType, contentTransferEncoding string
+	var bodyStartIdx int = -1
+
+	// Find headers
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		lineLower := strings.ToLower(line)
+
+		if strings.HasPrefix(lineLower, "content-type:") {
+			contentType = line
+		} else if strings.HasPrefix(lineLower, "content-transfer-encoding:") {
+			contentTransferEncoding = line
+		} else if line == "" && bodyStartIdx == -1 {
+			// Empty line marks end of headers
+			bodyStartIdx = i + 1
+			break
+		}
+	}
+
+	// Check if this looks like a single attachment email
+	contentTypeLower := strings.ToLower(contentType)
+	if !strings.Contains(contentTypeLower, "application/gzip") &&
+		!strings.Contains(contentTypeLower, "application/zip") &&
+		!strings.Contains(contentTypeLower, "application/x-gzip") {
+		return nil
+	}
+
+	if bodyStartIdx == -1 || bodyStartIdx >= len(lines) {
+		return nil
+	}
+
+	// Extract body content - only take lines that look like base64
+	var base64Lines []string
+	for i := bodyStartIdx; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		// Skip empty lines or lines that don't look like base64
+		if line == "" || (!strings.Contains("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=", string(line[0])) && len(line) > 0) {
+			continue
+		}
+		base64Lines = append(base64Lines, line)
+	}
+	bodyContent := strings.Join(base64Lines, "")
+
+	// Decode if base64 encoded
+	var attachmentData []byte
+	if strings.Contains(strings.ToLower(contentTransferEncoding), "base64") {
+		decoded, err := base64.StdEncoding.DecodeString(bodyContent)
+		if err != nil {
+			p.logger.Debug("Failed to decode base64 single attachment", zap.Error(err))
+			return nil
+		}
+		attachmentData = decoded
+	} else {
+		attachmentData = []byte(bodyContent)
+	}
+
+	// Try to extract content if it's compressed
+	extractedData, err := p.extractReportData(attachmentData)
+	if err != nil {
+		// If extraction fails, maybe it's already XML
+		if strings.Contains(strings.ToLower(string(attachmentData)), "<?xml") {
+			return attachmentData
+		}
+		return nil
+	}
+
+	return extractedData
 }
 
 // parseAsForensicReport tries to parse data as forensic DMARC report
@@ -1566,6 +1703,14 @@ func (p *Parser) extractDomainFromSample(sample string) string {
 
 // ParseAggregateFromBytes parses aggregate report from byte data
 func (p *Parser) ParseAggregateFromBytes(data []byte) (*AggregateReport, error) {
+	// Check if this looks like an email message first
+	dataStr := string(data)
+	dataStrLower := strings.ToLower(dataStr)
+	if strings.Contains(dataStrLower, "content-type:") && strings.Contains(dataStrLower, "mime-version:") {
+		// Try to extract aggregate report from email MIME parts
+		return p.parseAggregateFromEmail(data)
+	}
+
 	// Extract content if compressed
 	extractedData, err := p.extractReportData(data)
 	if err != nil {

@@ -16,3 +16,5 @@ parsedmarc/resources/maps/unknown_base_reverse_dns.csv
 .claude
 /parsedmarc-go
 /build/*
+/debug-config.yaml
+/debug_attachment.gz
