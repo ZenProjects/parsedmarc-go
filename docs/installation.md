@@ -98,9 +98,20 @@ go mod download
 
 # Build binary
 make build
+# OR manually:
+go build -o parsedmarc-go ./cmd/parsedmarc-go
 
 # Install binary
 sudo cp build/parsedmarc-go /usr/local/bin/
+```
+
+### Running Tests
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with coverage
+make test-coverage
 ```
 
 ### Cross-Compilation

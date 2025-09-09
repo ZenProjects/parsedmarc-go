@@ -4,11 +4,15 @@ google_analytics: UA-3441258-7
 show_downloads: true
 theme: jekyll-theme-cayman
 
-gems:
+plugins:
   - jekyll-mentions
-  - jekyll-mermaid
 
 markdown: kramdown
 kramdown:
   input: GFM
   syntax_highlighter: rouge
+  
+# Mermaid configuration
+mermaid:
+  # Enable mermaid diagrams
+  enabled: true

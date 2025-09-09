@@ -4,23 +4,192 @@ This guide covers how to use parsedmarc-go in various scenarios.
 
 ## Command Line Usage
 
+### Command Line Options
+
+```bash
+Usage of parsedmarc-go:
+  -config string
+        Config file path (default "config.yaml")
+  -daemon
+        Run as daemon (enables IMAP and HTTP)
+  -format string
+        Output format: json, csv (default "json")
+  -input string
+        Input file or directory to parse
+  -output string
+        Output file or directory path (default: stdout)
+  -version
+        Show version information
+```
+
 ### Basic Report Parsing
 
 Parse a single DMARC report file:
 ```bash
-parsedmarc-go -input /path/to/report.xml
+# Parse XML aggregate report
+parsedmarc-go -input report.xml
+
+# Parse forensic email (with MIME attachments)
+parsedmarc-go -input forensic-report.eml
+
+# Parse SMTP TLS email (with compressed attachments) 
+parsedmarc-go -input smtp-tls-report.eml
 ```
+
+### Output Options
+
+#### Output to JSON file
+```bash
+parsedmarc-go -input report.xml -output results.json -format json
+```
+
+#### Output to CSV file
+```bash
+parsedmarc-go -input report.xml -output results.csv -format csv
+```
+
+#### Output to directory (separate files per report)
+```bash
+# Create output directory
+mkdir ./reports_output
+
+# Each report will be saved as a separate file with timestamp
+parsedmarc-go -input report.xml -output ./reports_output -format json
+# Creates: reports_output/aggregate_20240101_120000_reportID.json
+
+# In daemon mode, each incoming report creates a new file
+parsedmarc-go -daemon -output ./reports_output -format json
+```
+
+#### Output to stdout (default)
+```bash
+parsedmarc-go -input report.xml -format json
+```
+
+### Parsing Multiple Files
 
 Parse all files in a directory:
 ```bash
-parsedmarc-go -input /path/to/reports/
+# Concatenate all reports into a single file
+parsedmarc-go -input /path/to/reports/ -output all_reports.json -format json
+
+# Save each report as a separate file
+parsedmarc-go -input /path/to/reports/ -output ./output_dir/ -format json
 ```
 
 ### Daemon Mode
 
-Run parsedmarc-go as a daemon to enable IMAP and HTTP services:
+#### IMAP + HTTP Mode (Full Daemon)
+
+Modify this section of the config.yml:
+```yaml
+# IMAP configuration for fetching reports from email
+imap:
+  enabled: true                          # Enable IMAP client
+  host: "imap.host.com"                  # IMAP server hostname
+  port: 993                              # IMAP server port (993 for TLS, 143 for plain)
+  username: "user"                       # IMAP username
+  password: "pass"                       # IMAP password
+  tls: true                              # Use TLS/SSL connection
+  skip_verify: false                     # Skip TLS certificate verification
+  mailbox: "INBOX"                       # Mailbox to monitor
+  archive_mailbox: "DMARC-Archive"       # Mailbox to move processed emails
+  delete_processed: false                # Delete processed emails instead of archiving
+  check_interval: 300                    # Check interval in seconds (5 minutes)
+
+# HTTP server configuration for receiving reports
+http:
+  enabled: true                          # Enable HTTP server
+  host: "0.0.0.0"                        # Host to bind to
+  port: 8080                             # Port to listen on
+  tls: false                             # Enable TLS/HTTPS
+  cert_file: ""                          # TLS certificate file path (required if tls: true)
+  key_file: ""                           # TLS private key file path (required if tls: true)
+  rate_limit: 60                         # Requests per minute per IP
+  rate_burst: 10                         # Burst capacity for rate limiter
+  max_upload_size: 52428800              # Max upload size in bytes (50MB)
+```
+
 ```bash
 parsedmarc-go -daemon -config config.yaml
+```
+
+#### HTTP Server Only
+
+Modify this section of the config.yml:
+```yaml
+# IMAP configuration for fetching reports from email
+imap:
+  enabled: false                          # Disable IMAP client
+
+# HTTP server configuration for receiving reports
+http:
+  enabled: true                          # Enable HTTP server
+  host: "0.0.0.0"                        # Host to bind to
+  port: 8080                             # Port to listen on
+  tls: false                             # Enable TLS/HTTPS
+  cert_file: ""                          # TLS certificate file path (required if tls: true)
+  key_file: ""                           # TLS private key file path (required if tls: true)
+  rate_limit: 60                         # Requests per minute per IP
+  rate_burst: 10                         # Burst capacity for rate limiter
+  max_upload_size: 52428800              # Max upload size in bytes (50MB)
+```
+
+```bash
+# Enable HTTP in config.yaml then:
+parsedmarc-go -daemon
+```
+
+#### IMAP Client Only
+
+Modify this section of the config.yml:
+```yaml
+# IMAP configuration for fetching reports from email
+imap:
+  enabled: true                          # Enable IMAP client
+  host: "imap.host.com"                  # IMAP server hostname
+  port: 993                              # IMAP server port (993 for TLS, 143 for plain)
+  username: "user"                       # IMAP username
+  password: "pass"                       # IMAP password
+  tls: true                              # Use TLS/SSL connection
+  skip_verify: false                     # Skip TLS certificate verification
+  mailbox: "INBOX"                       # Mailbox to monitor
+  archive_mailbox: "DMARC-Archive"       # Mailbox to move processed emails
+  delete_processed: false                # Delete processed emails instead of archiving
+  check_interval: 300                    # Check interval in seconds (5 minutes)
+
+# HTTP server configuration for receiving reports
+http:
+  enabled: false                          # Disable HTTP server
+```
+
+```bash
+# Enable IMAP in config.yaml then:
+parsedmarc-go -daemon
+```
+
+#### With Custom Configuration File
+
+```bash
+parsedmarc-go -config /path/to/config.yaml -input report.xml
+```
+
+#### Environment Variables
+
+You can also use environment variables for configuration:
+
+```bash
+export CLICKHOUSE_HOST=clickhouse.example.com
+export CLICKHOUSE_PORT=9000
+export CLICKHOUSE_USERNAME=myuser
+export CLICKHOUSE_PASSWORD=mypassword
+export IMAP_HOST=imap.example.com
+export IMAP_USERNAME=dmarc@example.com
+export IMAP_PASSWORD=password
+export HTTP_ENABLED=true
+export HTTP_PORT=8080
+
+parsedmarc-go -daemon
 ```
 
 ### Show Version
@@ -340,11 +509,30 @@ Monitor these key Prometheus metrics:
 - `parsedmarc_http_requests_total`: HTTP endpoint usage
 - `parsedmarc_imap_messages_processed`: IMAP message processing
 
-## Troubleshooting
+## Troubleshooting & FAQ
 
-### Common Issues
+### **Common Issues & Solutions**
 
-#### DNS Resolution Problems
+#### **🚨 Parsing Errors**
+
+**Q: "XML syntax error at line X" - What does this mean?**
+```bash
+# ✅ Enhanced error reporting now shows exact line numbers
+Error: XML syntax error at line 15: expected attribute name in element
+```
+**Solution:** Check the XML file at the specified line for malformed tags, missing quotes, or invalid characters.
+
+**Q: "No feedback report found" for email files**
+```bash
+# ❌ Old behavior: Generic error
+Error: no feedback report found
+
+# ✅ New behavior: Detailed diagnostics  
+Debug: MIME parsing found 3 parts, no feedback-report content-type detected
+```
+**Solution:** The email may use a non-standard MIME structure. Enable debug logging to see MIME parsing details.
+
+#### **🔗 DNS Resolution Problems**
 ```yaml
 parser:
   always_use_local_nameservers: false
@@ -353,30 +541,64 @@ parser:
     - "1.1.1.1"
 ```
 
-#### IMAP Connection Issues
+#### **📧 IMAP Connection Issues**
 - Check firewall settings for port 993/143
 - Verify TLS settings match server requirements
 - Ensure credentials are correct (use app passwords for Gmail)
 
-#### ClickHouse Connection Problems
+#### **🗃️ ClickHouse Connection Problems**
 - Verify ClickHouse is running and accessible
 - Check database permissions
 - Ensure network connectivity
 
-#### High Memory Usage
+#### **💾 High Memory Usage**
 - Enable `strip_attachment_payloads: true`
 - Reduce `max_workers` if processing large files
 - Monitor with `parsedmarc_memory_usage_bytes` metric
 
-### Debug Mode
+### **🐛 Debug Mode**
 
-Enable debug logging for troubleshooting:
+Enable detailed logging for troubleshooting:
 ```yaml
+# config.yaml
 logging:
-  level: debug
+  level: debug    # Shows MIME parsing details
+  format: console # Human-readable format
 ```
 
-### Testing Configuration
+```bash
+# Command line debug
+./parsedmarc-go -input problem-report.eml 2>&1 | grep -E "(DEBUG|ERROR)"
+```
+
+### **🧪 Testing Your Setup**
+
+#### **Validate Parser Functionality**
+```bash
+# Test with sample files
+./parsedmarc-go -input samples/aggregate/!example.com!1538204542!1538463818.xml
+./parsedmarc-go -input samples/forensic/netease-report.eml  
+./parsedmarc-go -input samples/smtp_tls/google-report.eml
+```
+
+#### **Test ClickHouse Connection**
+```bash
+# Test database connectivity
+echo "SELECT version()" | clickhouse-client --host localhost --port 9000
+```
+
+#### **Test HTTP API**
+```bash
+# Test basic connectivity
+curl -X GET http://localhost:8080/health
+
+# Submit test report
+curl -X POST http://localhost:8080/dmarc/report \
+  -H "Content-Type: application/xml" \
+  --data @test-report.xml
+```
+
+#### **Testing Configuration**
 
 Validate your configuration:
 ```bash

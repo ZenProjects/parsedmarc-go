@@ -2,6 +2,14 @@
 
 parsedmarc-go uses YAML configuration files with support for environment variables. This guide covers all configuration options and common setup scenarios.
 
+## Quick Start Configuration
+
+Copy the example configuration file and edit according to your needs:
+
+```bash
+cp config.yaml.example config.yaml
+```
+
 ## Configuration File Structure
 
 The configuration file is organized into logical sections:
@@ -16,7 +24,7 @@ logging:
 # Parser settings
 parser:
   offline: false
-  ip_db_path: ""
+  ip_db_path: "/path/to/GeoLite2-City.mmdb"
   nameservers:
     - "1.1.1.1"
     - "1.0.0.1"

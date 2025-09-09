@@ -51,19 +51,9 @@ docker run -d -p 8080:8080 \
   parsedmarc-go:latest
 ```
 
-## Performance Comparison
-
-| Metric | parsedmarc (Python) | parsedmarc-go |
-|--------|-------------------|---------------|
-| Memory Usage | ~200MB | ~50MB |
-| CPU Usage | High (GIL limited) | Low (concurrent) |
-| Startup Time | ~5-10s | ~100ms |
-| Report Processing | ~100 reports/min | ~1000+ reports/min |
-| Binary Size | N/A (+ Python runtime) | ~25MB |
-
 ## 📚 Complete Documentation Guide
 
-### 🚀 **Phase 1: Getting Started**
+### 🚀 **Getting Started**
 1. **[📦 Installation](installation.md)** 
    - Binary installation, Docker, and building from source
    - Prerequisites setup (Go, ClickHouse, MaxMind)
@@ -74,7 +64,7 @@ docker run -d -p 8080:8080 \
    - Environment variables and CLI parameters
    - IMAP, HTTP, ClickHouse, and monitoring configuration
 
-### 🔧 **Phase 2: Usage**  
+### 🔧 **Usage**  
 3. **[💡 Usage Guide](usage.md)**
    - File and directory processing
    - Daemon mode (IMAP + HTTP)
@@ -85,7 +75,7 @@ docker run -d -p 8080:8080 \
    - Email provider integrations
    - Authentication and security
 
-### 📊 **Phase 3: Storage and Visualization**
+### 📊 **Storage and Visualization**
 5. **[🗃️ ClickHouse](clickhouse.md)**
    - Optimized database schema
    - Analysis and reporting queries
@@ -96,7 +86,7 @@ docker run -d -p 8080:8080 \
    - Pre-configured visualizations
    - Customization and alerting
 
-### 📈 **Phase 4: Production and Monitoring**
+### 📈 **Production and Monitoring**
 7. **[📈 Monitoring](monitoring.md)**
    - Detailed Prometheus metrics  
    - Health checks and observability
@@ -106,7 +96,7 @@ docker run -d -p 8080:8080 \
    - SMTP configuration for reports
    - Integration with notification systems
 
-### 📖 **Phase 5: Reference**
+### 📖 **Reference**
 9. **[🔒 DMARC Standards](dmarc.md)**
    - Detailed RFC specifications
    - Supported report formats

@@ -339,7 +339,73 @@ PARTITION BY toYYYYMMDD(begin_date)
 
 ## Common Queries
 
-### DMARC Compliance Rate
+### Top 10 Most Reported Domains
+```sql
+SELECT 
+    domain,
+    count() as report_count,
+    sum(count) as total_messages
+FROM dmarc_aggregate_records 
+WHERE begin_date >= today() - 30
+GROUP BY domain 
+ORDER BY total_messages DESC 
+LIMIT 10;
+```
+
+### DMARC Compliance Rate by Organization
+```sql
+SELECT 
+    org_name,
+    countIf(dmarc_aligned = 1) as aligned_count,
+    countIf(dmarc_aligned = 0) as not_aligned_count,
+    round((aligned_count / (aligned_count + not_aligned_count)) * 100, 2) as alignment_rate
+FROM dmarc_aggregate_records 
+WHERE begin_date >= today() - 7
+GROUP BY org_name 
+ORDER BY alignment_rate DESC;
+```
+
+### Most Frequent Source IPs
+```sql
+SELECT 
+    source_ip_address,
+    source_country,
+    source_reverse_dns,
+    sum(count) as message_count
+FROM dmarc_aggregate_records 
+WHERE begin_date >= today() - 7
+GROUP BY source_ip_address, source_country, source_reverse_dns
+ORDER BY message_count DESC 
+LIMIT 20;
+```
+
+### SMTP TLS Success Rates by Organization
+```sql
+SELECT 
+    organization_name,
+    policy_domain,
+    successful_session_count,
+    failed_session_count,
+    round((successful_session_count / (successful_session_count + failed_session_count)) * 100, 2) as success_rate
+FROM dmarc_smtp_tls_reports 
+WHERE begin_date >= today() - 7
+ORDER BY success_rate ASC
+LIMIT 10;
+```
+
+### Most Common SMTP TLS Failure Types
+```sql
+SELECT 
+    result_type,
+    count() as failure_count,
+    sum(failed_session_count) as total_failed_sessions
+FROM dmarc_smtp_tls_failures 
+WHERE created_at >= today() - 7
+GROUP BY result_type 
+ORDER BY total_failed_sessions DESC;
+```
+
+### DMARC Compliance Rate by Domain
 ```sql
 SELECT 
     domain,
