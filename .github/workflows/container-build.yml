@@ -73,21 +73,21 @@ jobs:
         id: build-image
         run: |
           # Extract version from metadata
-          VERSION="${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}"
-          if [ -z "$VERSION" ]; then
+          if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
+            VERSION=$(echo "${{ github.ref }}" | sed 's/refs\/tags\///')
+          else
             VERSION="dev-${{ github.sha }}"
           fi
           
           # Build the image
           buildah bud \
             --build-arg VERSION="$VERSION" \
-            --label org.opencontainers.image.created="${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}" \
-            --label org.opencontainers.image.description="${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.description'] }}" \
-            --label org.opencontainers.image.licenses="${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.licenses'] }}" \
-            --label org.opencontainers.image.revision="${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}" \
-            --label org.opencontainers.image.source="${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.source'] }}" \
-            --label org.opencontainers.image.title="${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.title'] }}" \
-            --label org.opencontainers.image.url="${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.url'] }}" \
+            --label org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --label org.opencontainers.image.description="DMARC report parser written in Go" \
+            --label org.opencontainers.image.revision="${{ github.sha }}" \
+            --label org.opencontainers.image.source="${{ github.server_url }}/${{ github.repository }}" \
+            --label org.opencontainers.image.title="parsedmarc-go" \
+            --label org.opencontainers.image.url="${{ github.server_url }}/${{ github.repository }}" \
             --label org.opencontainers.image.version="$VERSION" \
             -t temp-image \
             .
