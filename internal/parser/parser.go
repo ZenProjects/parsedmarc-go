@@ -1057,6 +1057,21 @@ func (p *Parser) parseJSONWithLineInfo(data []byte, v interface{}) error {
 
 // parseAggregateXML parses XML aggregate DMARC report
 func (p *Parser) parseAggregateXML(data []byte) (*AggregateReport, error) {
+	// Handle XML files that may have schema declarations or other wrapper elements
+	// Look for the <feedback> element and extract just that part
+	dataStr := string(data)
+	feedbackStart := strings.Index(dataStr, "<feedback>")
+	feedbackEnd := strings.LastIndex(dataStr, "</feedback>")
+
+	if feedbackStart != -1 && feedbackEnd != -1 && feedbackEnd > feedbackStart {
+		// Extract just the feedback section
+		feedbackXML := dataStr[feedbackStart : feedbackEnd+len("</feedback>")]
+		data = []byte(feedbackXML)
+		p.logger.Debug("Extracted feedback section from XML with schema/wrapper elements",
+			zap.Int("originalSize", len(dataStr)),
+			zap.Int("extractedSize", len(feedbackXML)))
+	}
+
 	var feedback struct {
 		XMLName        xml.Name `xml:"feedback"`
 		Version        string   `xml:"version,omitempty"`
