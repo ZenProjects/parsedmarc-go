@@ -351,22 +351,6 @@ for file in *.xml; do
 done
 ```
 
-## Webhooks
-
-Future versions will support webhook notifications for processed reports:
-
-```yaml
-http:
-  webhooks:
-    - url: https://example.com/dmarc-webhook
-      events: ["report.processed", "report.failed"]
-      secret: "webhook-secret"
-```
-
-## OpenAPI Specification
-
-A complete OpenAPI 3.0 specification will be available at `/api/swagger.json` in future releases.
-
 ## Testing
 
 Test the API endpoints:
