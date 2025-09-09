@@ -1,6 +1,6 @@
 # Makefile for parsedmarc-go
 
-.PHONY: build clean test run docker help
+.PHONY: build clean test run help container-build container-run container-run-detached container-push container-dev container-shell container-clean container-logs container-stop buildah-build buildah-run buildah-push buildah-clean
 
 # Variables
 BINARY_NAME=parsedmarc-go
@@ -8,6 +8,12 @@ BINARY_PATH=./cmd/parsedmarc-go
 BUILD_DIR=./build
 VERSION=1.0.0
 LDFLAGS=-ldflags "-X main.version=$(VERSION)"
+
+# Container variables (Buildah/Podman)
+CONTAINER_IMAGE=parsedmarc-go
+CONTAINER_TAG=$(VERSION)
+CONTAINER_LATEST_TAG=latest
+CONTAINER_REGISTRY=
 
 # Default target
 help: ## Show this help message
@@ -101,14 +107,84 @@ run: build ## Build and run with example config
 	@echo "Running $(BINARY_NAME) with example config..."
 	@$(BUILD_DIR)/$(BINARY_NAME) -config config.yaml.example
 
-docker-build: ## Build Docker image
-	@echo "Building Docker image..."
-	@docker build -t parsedmarc-go:$(VERSION) .
-	@docker tag parsedmarc-go:$(VERSION) parsedmarc-go:latest
+buildah-build: ## Build container image avec Buildah
+	@echo "Building container image $(CONTAINER_IMAGE):$(CONTAINER_TAG) with Buildah..."
+	@buildah bud \
+		--build-arg VERSION=$(VERSION) \
+		-t $(CONTAINER_IMAGE):$(CONTAINER_TAG) \
+		-t $(CONTAINER_IMAGE):$(CONTAINER_LATEST_TAG) \
+		.
+	@echo "Container image built successfully: $(CONTAINER_IMAGE):$(CONTAINER_TAG)"
 
-docker-run: ## Run Docker container
-	@echo "Running Docker container..."
-	@docker run --rm -v $(PWD)/config.yaml:/app/config.yaml -v $(PWD)/reports:/app/reports parsedmarc-go:latest
+container-build: buildah-build ## Alias pour buildah-build
+
+buildah-run: ## Run container avec Podman
+	@echo "Running container with Podman..."
+	@podman run --rm \
+		-v $(PWD)/config.yaml:/app/config/config.yaml:ro \
+		-v $(PWD)/reports:/app/reports \
+		-p 8080:8080 \
+		$(CONTAINER_IMAGE):$(CONTAINER_LATEST_TAG)
+
+container-run: buildah-run ## Alias pour buildah-run
+
+container-run-detached: ## Run container in background avec Podman
+	@echo "Running container in detached mode with Podman..."
+	@podman run -d \
+		--name $(CONTAINER_IMAGE)-container \
+		-v $(PWD)/config.yaml:/app/config/config.yaml:ro \
+		-v $(PWD)/reports:/app/reports \
+		-p 8080:8080 \
+		$(CONTAINER_IMAGE):$(CONTAINER_LATEST_TAG)
+
+container-dev: ## Run container for development avec Podman
+	@echo "Running container for development with Podman..."
+	@podman run --rm -it \
+		-v $(PWD):/app/src \
+		-v $(PWD)/config.yaml:/app/config/config.yaml:ro \
+		-v $(PWD)/reports:/app/reports \
+		-p 8080:8080 \
+		-w /app/src \
+		golang:1.23-alpine \
+		sh -c "apk add --no-cache make && make run"
+
+container-shell: ## Open shell in container avec Podman
+	@echo "Opening shell in container with Podman..."
+	@podman run --rm -it \
+		-v $(PWD):/app/src \
+		-w /app/src \
+		$(CONTAINER_IMAGE):$(CONTAINER_LATEST_TAG) \
+		sh
+
+buildah-push: buildah-build ## Push container image to registry avec Buildah
+	@if [ -z "$(CONTAINER_REGISTRY)" ]; then \
+		echo "Error: CONTAINER_REGISTRY variable is not set"; \
+		exit 1; \
+	fi
+	@echo "Pushing container image to registry with Buildah..."
+	@buildah tag $(CONTAINER_IMAGE):$(CONTAINER_TAG) $(CONTAINER_REGISTRY)/$(CONTAINER_IMAGE):$(CONTAINER_TAG)
+	@buildah tag $(CONTAINER_IMAGE):$(CONTAINER_LATEST_TAG) $(CONTAINER_REGISTRY)/$(CONTAINER_IMAGE):$(CONTAINER_LATEST_TAG)
+	@buildah push $(CONTAINER_REGISTRY)/$(CONTAINER_IMAGE):$(CONTAINER_TAG)
+	@buildah push $(CONTAINER_REGISTRY)/$(CONTAINER_IMAGE):$(CONTAINER_LATEST_TAG)
+
+container-push: buildah-push ## Alias pour buildah-push
+
+buildah-clean: ## Clean container images and containers avec Buildah/Podman
+	@echo "Cleaning container artifacts with Buildah/Podman..."
+	@podman container prune -f 2>/dev/null || true
+	@podman image prune -f 2>/dev/null || true
+	@-buildah rmi $(CONTAINER_IMAGE):$(CONTAINER_TAG) 2>/dev/null || true
+	@-buildah rmi $(CONTAINER_IMAGE):$(CONTAINER_LATEST_TAG) 2>/dev/null || true
+	@echo "Container cleanup completed"
+
+container-clean: buildah-clean ## Alias pour buildah-clean
+
+container-logs: ## Show logs from running container avec Podman
+	@podman logs -f $(CONTAINER_IMAGE)-container
+
+container-stop: ## Stop running container avec Podman
+	@podman stop $(CONTAINER_IMAGE)-container || true
+	@podman rm $(CONTAINER_IMAGE)-container || true
 
 install-deps: ## Install development dependencies
 	@echo "Installing development dependencies..."
