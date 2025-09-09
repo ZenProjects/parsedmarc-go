@@ -161,7 +161,11 @@ func testIMAPIntegration(t *testing.T, cfg config.IMAPConfig, logger *zap.Logger
 		t.Skipf("IMAP connection failed (expected in test environment): %v", err)
 		return
 	}
-	defer imapClient.Disconnect()
+	defer func() {
+		if disconnectErr := imapClient.Disconnect(); disconnectErr != nil {
+			t.Logf("Failed to disconnect IMAP client: %v", disconnectErr)
+		}
+	}()
 
 	// Test processing messages (should not fail)
 	err = imapClient.ProcessMessages()
