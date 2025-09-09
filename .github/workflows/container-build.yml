@@ -2,10 +2,7 @@ name: Container Image Build and Push
 
 on:
   push:
-    branches: [ master, main ]
     tags: [ 'v*' ]
-  pull_request:
-    branches: [ master, main ]
   workflow_dispatch:
 
 env:
@@ -30,7 +27,6 @@ jobs:
           sudo apt-get install -y buildah podman
           
       - name: Log in to Container Registry
-        if: github.event_name != 'pull_request'
         uses: redhat-actions/podman-login@v1
         with:
           registry: ${{ env.REGISTRY }}
@@ -43,13 +39,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
 
       - name: Build container image with Buildah
         id: build-image
@@ -112,7 +105,6 @@ jobs:
           sarif_file: 'trivy-image-results.sarif'
 
       - name: Push container image
-        if: github.event_name != 'pull_request'
         run: |
           # Push all tags
           echo "${{ steps.meta.outputs.tags }}" | while read -r tag; do
@@ -123,7 +115,6 @@ jobs:
           done
 
       - name: Generate SBOM
-        if: github.event_name != 'pull_request'
         uses: anchore/sbom-action@v0
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
@@ -131,7 +122,6 @@ jobs:
           output-file: sbom.spdx.json
 
       - name: Upload SBOM
-        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: sbom
@@ -140,7 +130,7 @@ jobs:
 
   multi-arch-build:
     name: Multi-Architecture Build
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -176,9 +166,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch,suffix=-${{ matrix.arch }}
             type=semver,pattern={{version}},suffix=-${{ matrix.arch }}
-            type=raw,value=latest,suffix=-${{ matrix.arch }},enable={{is_default_branch}}
+            type=raw,value=latest,suffix=-${{ matrix.arch }}
 
       - name: Build container image for ${{ matrix.arch }}
         run: |
@@ -207,7 +196,7 @@ jobs:
   create-manifest:
     name: Create Multi-Arch Manifest
     needs: [multi-arch-build]
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: read

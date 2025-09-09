@@ -81,7 +81,7 @@ The conversion to Go was done with **Claude AI**, adding significant improvement
 
 ```bash
 # Clone the project
-git clone https://github.com/domainaware/parsedmarc-go
+git clone https://github.com/ZenProjects/parsedmarc-go
 cd parsedmarc-go
 
 # Install dependencies
