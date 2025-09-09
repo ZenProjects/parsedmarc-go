@@ -111,8 +111,14 @@ jobs:
           fi
           
           # Set output for later use
-          echo "ghcr-tags=${{ steps.meta-ghcr.outputs.tags }}" >> $GITHUB_OUTPUT
-          echo "gcr-tags=${{ steps.meta-gcr.outputs.tags }}" >> $GITHUB_OUTPUT
+          echo "ghcr-tags<<EOF" >> $GITHUB_OUTPUT
+          echo "${{ steps.meta-ghcr.outputs.tags }}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "gcr-tags<<EOF" >> $GITHUB_OUTPUT
+          echo "${{ steps.meta-gcr.outputs.tags }}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
           echo "image-digest=$(buildah inspect --format='{{.FromImageDigest}}' temp-image)" >> $GITHUB_OUTPUT
 
       - name: Test container image

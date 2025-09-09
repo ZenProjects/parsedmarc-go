@@ -79,7 +79,7 @@ test-samples: ## Verify all sample files can be parsed
 	@echo "Testing sample files..."
 	@echo "Testing aggregate samples (excluding large file)..."
 	@for file in samples/aggregate/*.xml samples/aggregate/*.gz samples/aggregate/*.zip samples/aggregate/*.eml; do \
-		if [ -f "$$file" ] && [[ "$$file" != *"large-example.com"* ]]; then \
+		if [ -f "$$file" ] && ! echo "$$file" | grep -q "large-example.com"; then \
 			echo "Testing: $$file"; \
 			timeout 30s go run $(BINARY_PATH) -input "$$file" || echo "Failed or timed out: $$file"; \
 		fi; \

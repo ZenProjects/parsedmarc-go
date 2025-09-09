@@ -3,6 +3,9 @@
 # Stage 1: Builder
 FROM golang:1.23-alpine AS builder
 
+# Argument pour la version
+ARG VERSION=dev
+
 # Installer les dépendances de build nécessaires
 RUN apk add --no-cache git ca-certificates tzdata
 
@@ -21,10 +24,10 @@ RUN go mod download
 # Copier le code source
 COPY . .
 
-# Construire l'application avec optimisations
+# Construire l'application avec optimisations en utilisant la version
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -a -installsuffix cgo \
-    -ldflags='-w -s -extldflags "-static"' \
+    -ldflags="-w -s -extldflags '-static' -X main.version=${VERSION}" \
     -o parsedmarc-go \
     ./cmd/parsedmarc-go
 
