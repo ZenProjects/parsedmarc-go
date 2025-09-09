@@ -104,24 +104,30 @@ type KafkaConfig struct {
 	SMTPTLSTopic   string   `mapstructure:"smtp_tls_topic"`
 }
 
-// Load loads configuration from file
+// Load loads configuration from file, using defaults if file doesn't exist
 func Load(configFile string) (*Config, error) {
 	v := viper.New()
 
-	// Set defaults
+	// Set defaults first
 	setDefaults(v)
-
-	// Set config file
-	v.SetConfigFile(configFile)
-	v.SetConfigType("yaml")
 
 	// Enable environment variable reading
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	// Try to read config file
-	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+	// Try to read config file if it exists
+	if configFile != "" {
+		v.SetConfigFile(configFile)
+		v.SetConfigType("yaml")
+
+		// Only return error if file exists but can't be read/parsed
+		if err := v.ReadInConfig(); err != nil {
+			// Check if it's just a file not found error
+			if !isFileNotFoundError(err) {
+				return nil, fmt.Errorf("failed to read config file: %w", err)
+			}
+			// If file doesn't exist, just continue with defaults
+		}
 	}
 
 	var cfg Config
@@ -130,6 +136,28 @@ func Load(configFile string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// LoadDefault loads configuration with default values only
+func LoadDefault() *Config {
+	v := viper.New()
+	setDefaults(v)
+
+	// Enable environment variable reading
+	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	var cfg Config
+	v.Unmarshal(&cfg) // This shouldn't fail with defaults
+	return &cfg
+}
+
+// isFileNotFoundError checks if the error is a file not found error
+func isFileNotFoundError(err error) bool {
+	errMsg := err.Error()
+	return strings.Contains(errMsg, "no such file or directory") ||
+		strings.Contains(errMsg, "cannot find the file") ||
+		strings.Contains(errMsg, "system cannot find the file")
 }
 
 func setDefaults(v *viper.Viper) {

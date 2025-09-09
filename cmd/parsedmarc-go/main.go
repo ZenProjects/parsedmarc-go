@@ -42,10 +42,19 @@ func main() {
 	}
 
 	// Initialize configuration
-	cfg, err := config.Load(*configFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
-		os.Exit(1)
+	var cfg *config.Config
+	var err error
+
+	// Try to load config file, fallback to defaults if not found
+	if *configFile != "" {
+		cfg, err = config.Load(*configFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		// Use default configuration
+		cfg = config.LoadDefault()
 	}
 
 	// Initialize logger
