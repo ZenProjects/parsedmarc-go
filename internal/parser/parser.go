@@ -133,6 +133,7 @@ func (p *Parser) parseDirectory(dirPath string) error {
 
 // parseSingleFile parses a single DMARC report file
 func (p *Parser) parseSingleFile(filePath string) error {
+	startTime := time.Now()
 	p.logger.Info("Parsing file", zap.String("file", filePath))
 
 	data, err := p.extractReport(filePath)
@@ -140,18 +141,51 @@ func (p *Parser) parseSingleFile(filePath string) error {
 		return fmt.Errorf("failed to extract report: %w", err)
 	}
 
+	// Log data size for monitoring
+	p.logger.Debug("Extracted report data",
+		zap.String("file", filePath),
+		zap.Int("size_bytes", len(data)),
+		zap.Duration("extraction_time", time.Since(startTime)),
+	)
+
+	// Skip empty files
+	if len(data) == 0 {
+		p.logger.Warn("Skipping empty file", zap.String("file", filePath))
+		return fmt.Errorf("file is empty")
+	}
+
 	// Try to parse as different report types
+	parseStart := time.Now()
 	if err := p.parseAsAggregateReport(data); err == nil {
+		p.logger.Debug("Successfully parsed as aggregate report",
+			zap.String("file", filePath),
+			zap.Duration("total_time", time.Since(startTime)),
+			zap.Duration("parse_time", time.Since(parseStart)),
+		)
 		return nil
 	}
 
 	if err := p.parseAsForensicReport(data); err == nil {
+		p.logger.Debug("Successfully parsed as forensic report",
+			zap.String("file", filePath),
+			zap.Duration("total_time", time.Since(startTime)),
+		)
 		return nil
 	}
 
 	if err := p.parseAsSMTPTLSReport(data); err == nil {
+		p.logger.Debug("Successfully parsed as SMTP TLS report",
+			zap.String("file", filePath),
+			zap.Duration("total_time", time.Since(startTime)),
+		)
 		return nil
 	}
+
+	p.logger.Warn("Unable to parse file",
+		zap.String("file", filePath),
+		zap.Duration("total_time", time.Since(startTime)),
+		zap.Int("data_size", len(data)),
+	)
 
 	return fmt.Errorf("unable to parse file as any known DMARC report type")
 }
@@ -163,6 +197,23 @@ func (p *Parser) extractReport(filePath string) ([]byte, error) {
 		return nil, err
 	}
 	defer file.Close()
+
+	// Check file size first to avoid loading huge files
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	// Limit file size to 100MB uncompressed to prevent memory exhaustion
+	const maxFileSize = 100 * 1024 * 1024
+	if fileInfo.Size() > maxFileSize {
+		p.logger.Warn("File size exceeds limit, skipping",
+			zap.String("file", filePath),
+			zap.Int64("size", fileInfo.Size()),
+			zap.Int64("max_size", maxFileSize),
+		)
+		return nil, fmt.Errorf("file size (%d bytes) exceeds maximum allowed size (%d bytes)", fileInfo.Size(), maxFileSize)
+	}
 
 	// Read first few bytes to detect file type
 	header := make([]byte, 10)
@@ -187,13 +238,17 @@ func (p *Parser) extractReport(filePath string) ([]byte, error) {
 		return p.extractFromGzip(file)
 	}
 
-	// Check for XML or JSON
+	// Check for XML or JSON - use limited reader to prevent memory exhaustion
 	if strings.HasPrefix(string(header), "<?xml") ||
 		strings.HasPrefix(string(header), "{") {
-		return io.ReadAll(file)
+		// Use a limited reader to prevent reading files that are too large
+		limitedReader := io.LimitReader(file, maxFileSize)
+		return io.ReadAll(limitedReader)
 	}
 
-	return io.ReadAll(file)
+	// For other file types, also use limited reader
+	limitedReader := io.LimitReader(file, maxFileSize)
+	return io.ReadAll(limitedReader)
 }
 
 // extractReportData extracts content from compressed data
@@ -689,7 +744,21 @@ func (p *Parser) processSMTPTLSReportWithMetrics(report *SMTPTLSReport, source s
 
 // parseXMLWithLineInfo wraps XML parsing to provide line number information on errors
 func (p *Parser) parseXMLWithLineInfo(data []byte, v interface{}) error {
+	// Check data size and log warning for large files
+	if len(data) > 50*1024*1024 { // 50MB
+		p.logger.Warn("Parsing large XML file",
+			zap.Int("size_mb", len(data)/(1024*1024)),
+			zap.String("note", "this may take a while and use significant memory"),
+		)
+	}
+
 	decoder := xml.NewDecoder(bytes.NewReader(data))
+	// Configure decoder for better memory usage with large files
+	decoder.CharsetReader = func(charset string, input io.Reader) (io.Reader, error) {
+		// Handle different charset encodings if needed
+		return input, nil
+	}
+
 	err := decoder.Decode(v)
 	if err != nil {
 		// Try to get line information from XML syntax errors
