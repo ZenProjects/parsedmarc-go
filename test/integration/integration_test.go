@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"parsedmarc-go/internal/config"
@@ -40,18 +41,21 @@ func NewTestConfig() *TestConfig {
 			Password: "test123",
 		},
 		Kafka: config.KafkaConfig{
-			Enabled: true,
-			Brokers: []string{"localhost:9092"},
-			Topic:   "parsedmarc-reports",
+			Enabled:        true,
+			Hosts:          []string{"localhost:9092"},
+			AggregateTopic: "parsedmarc-reports",
+			ForensicTopic:  "parsedmarc-forensic",
+			SMTPTLSTopic:   "parsedmarc-smtp-tls",
 		},
 		IMAP: config.IMAPConfig{
-			Enabled:       true,
-			Host:          "localhost",
-			Port:          143,
-			Username:      "testuser@test.local",
-			Password:      "testpass",
-			Folder:        "INBOX",
-			CheckInterval: 30,
+			Enabled:         true,
+			Host:            "localhost",
+			Port:            143,
+			Username:        "testuser@test.local",
+			Password:        "testpass",
+			Mailbox:         "INBOX",
+			CheckInterval:   30,
+			DeleteProcessed: false,
 		},
 		SMTP: config.SMTPConfig{
 			Enabled:  true,
@@ -139,10 +143,10 @@ func testClickHouseIntegration(t *testing.T, cfg config.ClickHouseConfig, logger
 func testKafkaIntegration(t *testing.T, cfg config.KafkaConfig, logger *zap.Logger) {
 	kafkaClient := kafka.New(&cfg, logger)
 
-	// Test sending a message
-	testMessage := `{"test": "message", "timestamp": "` + time.Now().Format(time.RFC3339) + `"}`
-	err := kafkaClient.SendMessage([]byte(testMessage))
-	assert.NoError(t, err, "Failed to send Kafka message")
+	// Test sending an aggregate report
+	report := createTestAggregateReport()
+	err := kafkaClient.SendAggregateReport(report)
+	assert.NoError(t, err, "Failed to send Kafka aggregate report")
 }
 
 // testIMAPIntegration tests IMAP integration
@@ -168,12 +172,10 @@ func testIMAPIntegration(t *testing.T, cfg config.IMAPConfig, logger *zap.Logger
 func testSMTPIntegration(t *testing.T, cfg config.SMTPConfig, logger *zap.Logger) {
 	smtpClient := smtp.New(&cfg, logger)
 
-	// Test sending email
-	subject := "Test Email - " + time.Now().Format(time.RFC3339)
-	body := "This is a test email from integration tests"
-
-	err := smtpClient.SendEmail(subject, body, []byte("attachment data"))
-	assert.NoError(t, err, "Failed to send SMTP email")
+	// Test sending aggregate report via email
+	report := createTestAggregateReport()
+	err := smtpClient.SendAggregateReport(report)
+	assert.NoError(t, err, "Failed to send SMTP aggregate report")
 }
 
 // testHTTPIntegration tests HTTP server integration
@@ -212,7 +214,7 @@ func testEndToEndIntegration(t *testing.T, cfg *TestConfig, logger *zap.Logger) 
 	defer storage.Close()
 
 	// Create parser with storage
-	parser := parser.New(config.ParserConfig{}, storage, logger)
+	_ = parser.New(config.ParserConfig{}, storage, logger)
 
 	// Create Kafka client
 	kafkaClient := kafka.New(&cfg.Kafka, logger)
@@ -225,9 +227,7 @@ func testEndToEndIntegration(t *testing.T, cfg *TestConfig, logger *zap.Logger) 
 	require.NoError(t, err)
 
 	// Send notification via Kafka
-	message := fmt.Sprintf(`{"type": "aggregate_report", "org": "%s", "report_id": "%s"}`,
-		report.ReportMetadata.OrgName, report.ReportMetadata.ReportID)
-	err = kafkaClient.SendMessage([]byte(message))
+	err = kafkaClient.SendAggregateReport(report)
 	assert.NoError(t, err)
 }
 
