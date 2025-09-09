@@ -618,6 +618,10 @@ curl -X POST http://localhost:8080/dmarc/report \
   --data @test-report.xml
 ```
 
+## Documentations
+
+[for documentations details](docs/index.md).
+
 ## License
 
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
