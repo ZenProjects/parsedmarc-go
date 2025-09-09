@@ -148,7 +148,18 @@ func LoadDefault() *Config {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	var cfg Config
-	v.Unmarshal(&cfg) // This shouldn't fail with defaults
+	if err := v.Unmarshal(&cfg); err != nil {
+		// This should not happen with default configuration, but handle gracefully
+		return &Config{
+			Logging: LoggingConfig{
+				Level:  "info",
+				Format: "json",
+			},
+			Parser: ParserConfig{
+				MaxWorkers: 4,
+			},
+		}
+	}
 	return &cfg
 }
 
