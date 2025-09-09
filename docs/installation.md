@@ -16,28 +16,28 @@ Download the pre-compiled binary for your platform:
 
 ### Linux x86_64
 ```bash
-curl -L -o parsedmarc-go https://github.com/domainaware/parsedmarc-go/releases/latest/download/parsedmarc-go-linux-amd64
+curl -L -o parsedmarc-go https://github.com/ZenProjects/parsedmarc-go/releases/latest/download/parsedmarc-go-linux-amd64
 chmod +x parsedmarc-go
 sudo mv parsedmarc-go /usr/local/bin/
 ```
 
 ### Linux ARM64
 ```bash
-curl -L -o parsedmarc-go https://github.com/domainaware/parsedmarc-go/releases/latest/download/parsedmarc-go-linux-arm64
+curl -L -o parsedmarc-go https://github.com/ZenProjects/parsedmarc-go/releases/latest/download/parsedmarc-go-linux-arm64
 chmod +x parsedmarc-go
 sudo mv parsedmarc-go /usr/local/bin/
 ```
 
 ### macOS x86_64
 ```bash
-curl -L -o parsedmarc-go https://github.com/domainaware/parsedmarc-go/releases/latest/download/parsedmarc-go-darwin-amd64
+curl -L -o parsedmarc-go https://github.com/ZenProjects/parsedmarc-go/releases/latest/download/parsedmarc-go-darwin-amd64
 chmod +x parsedmarc-go
 sudo mv parsedmarc-go /usr/local/bin/
 ```
 
 ### macOS ARM64 (M1/M2)
 ```bash
-curl -L -o parsedmarc-go https://github.com/domainaware/parsedmarc-go/releases/latest/download/parsedmarc-go-darwin-arm64
+curl -L -o parsedmarc-go https://github.com/ZenProjects/parsedmarc-go/releases/latest/download/parsedmarc-go-darwin-arm64
 chmod +x parsedmarc-go
 sudo mv parsedmarc-go /usr/local/bin/
 ```
@@ -45,7 +45,7 @@ sudo mv parsedmarc-go /usr/local/bin/
 ### Windows x86_64
 ```powershell
 # Download from GitHub releases page and add to PATH
-Invoke-WebRequest -Uri "https://github.com/domainaware/parsedmarc-go/releases/latest/download/parsedmarc-go-windows-amd64.exe" -OutFile "parsedmarc-go.exe"
+Invoke-WebRequest -Uri "https://github.com/ZenProjects/parsedmarc-go/releases/latest/download/parsedmarc-go-windows-amd64.exe" -OutFile "parsedmarc-go.exe"
 ```
 
 ## Method 2: Docker
@@ -57,7 +57,7 @@ docker pull parsedmarc/parsedmarc-go:latest
 
 ### Build from Source
 ```bash
-git clone https://github.com/domainaware/parsedmarc-go.git
+git clone https://github.com/ZenProjects/parsedmarc-go.git
 cd parsedmarc-go
 docker build -t parsedmarc-go .
 ```
@@ -90,7 +90,7 @@ docker run -d --name parsedmarc-go \
 ### Build Steps
 ```bash
 # Clone repository
-git clone https://github.com/domainaware/parsedmarc-go.git
+git clone https://github.com/ZenProjects/parsedmarc-go.git
 cd parsedmarc-go
 
 # Download dependencies
@@ -112,24 +112,6 @@ make build-windows  # Windows x86_64
 make build-all      # All platforms
 ```
 
-## Method 4: Package Managers
-
-### Homebrew (macOS/Linux)
-```bash
-# Add tap (coming soon)
-brew tap domainaware/tap
-brew install parsedmarc-go
-```
-
-### APT (Ubuntu/Debian)
-```bash
-# Add repository (coming soon)
-curl -fsSL https://packages.domainaware.com/gpg | sudo apt-key add -
-echo "deb https://packages.domainaware.com/apt stable main" | sudo tee /etc/apt/sources.list.d/domainaware.list
-sudo apt update
-sudo apt install parsedmarc-go
-```
-
 ## Verification
 
 Verify the installation:
@@ -149,7 +131,7 @@ Create a basic configuration file:
 
 ```bash
 # Copy example configuration
-curl -L -o config.yaml https://raw.githubusercontent.com/domainaware/parsedmarc-go/main/config.yaml.example
+curl -L -o config.yaml https://raw.githubusercontent.com/ZenProjects/parsedmarc-go/main/config.yaml.example
 
 # Edit configuration
 nano config.yaml

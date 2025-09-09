@@ -1,8 +1,8 @@
 # parsedmarc-go - High-performance DMARC report analyzer
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/domainaware/parsedmarc-go)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/ZenProjects/parsedmarc-go)
 [![Go Version](https://img.shields.io/badge/go-1.21+-blue)](https://golang.org/)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](https://github.com/domainaware/parsedmarc-go/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](https://github.com/ZenProjects/parsedmarc-go/blob/master/LICENSE)
 
 `parsedmarc-go` is a high-performance Go application for parsing and analyzing DMARC reports with native ClickHouse storage and Grafana visualization.
 It provides enterprise-grade DMARC report processing with superior performance and simplified deployment.
@@ -36,7 +36,7 @@ graph TD
 ### Binary Release
 ```bash
 # Download latest release
-curl -L -o parsedmarc-go https://github.com/domainaware/parsedmarc-go/releases/latest/download/parsedmarc-go-linux-amd64
+curl -L -o parsedmarc-go https://github.com/ZenProjects/parsedmarc-go/releases/latest/download/parsedmarc-go-linux-amd64
 chmod +x parsedmarc-go
 
 # Run with config
@@ -83,7 +83,7 @@ contributing
 - **Community**: Join discussions on best practices
 - **Migration Guide**: Step-by-step migration from Python version
 
-[GitHub Repository]: https://github.com/domainaware/parsedmarc-go
+[GitHub Repository]: https://github.com/ZenProjects/parsedmarc-go
 [ClickHouse]: https://clickhouse.com/
 [Grafana]: https://grafana.com/
 [Prometheus]: https://prometheus.io/
