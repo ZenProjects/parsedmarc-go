@@ -116,6 +116,8 @@ test-integration-quick: test-services-up ## Run integration tests (assumes servi
 
 test-all: test test-integration ## Run all tests (unit + integration)
 
+test-ci: test-short test-parser test-http test-samples ## Run CI-safe tests (no external services required)
+
 test-clickhouse: ## Test ClickHouse integration only
 	@echo "Testing ClickHouse integration..."
 	@export PARSEDMARC_TEST_MODE=true && go test -v ./internal/storage/clickhouse/ -timeout=2m
