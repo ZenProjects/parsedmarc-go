@@ -146,9 +146,9 @@ jobs:
       clickhouse:
         image: clickhouse/clickhouse-server:latest
         env:
-          CLICKHOUSE_DB: parsedmarc
+          CLICKHOUSE_DB: parsedmarc_test
           CLICKHOUSE_USER: parsedmarc
-          CLICKHOUSE_PASSWORD: parsedmarc
+          CLICKHOUSE_PASSWORD: test123
         ports:
           - 8123:8123
           - 9000:9000
@@ -157,6 +157,36 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=3
+      
+      zookeeper:
+        image: confluentinc/cp-zookeeper:latest
+        env:
+          ZOOKEEPER_CLIENT_PORT: 2181
+          ZOOKEEPER_TICK_TIME: 2000
+        ports:
+          - 2181:2181
+          
+      kafka:
+        image: confluentinc/cp-kafka:latest
+        env:
+          KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+        ports:
+          - 9092:9092
+        options: >-
+          --health-cmd="kafka-broker-api-versions --bootstrap-server localhost:9092"
+          --health-interval=30s
+          --health-timeout=10s
+          --health-retries=3
+          
+      mailhog:
+        image: mailhog/mailhog:latest
+        ports:
+          - 1025:1025
+          - 8025:8025
+          
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -177,8 +207,10 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Wait for ClickHouse to be ready
+      - name: Wait for services to be ready
         run: |
+          # Wait for ClickHouse
+          echo "Waiting for ClickHouse..."
           for i in {1..30}; do
             if wget --no-verbose --tries=1 --spider http://localhost:8123/ping; then
               echo "ClickHouse is ready!"
@@ -187,14 +219,35 @@ jobs:
             echo "Waiting for ClickHouse... ($i/30)"
             sleep 2
           done
+          
+          # Wait for Kafka
+          echo "Waiting for Kafka..."
+          for i in {1..30}; do
+            if kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1; then
+              echo "Kafka is ready!"
+              break
+            fi
+            echo "Waiting for Kafka... ($i/30)"
+            sleep 2
+          done
+
+      - name: Initialize test environment
+        run: |
+          # Make scripts executable
+          chmod +x scripts/init-clickhouse.sh
+          
+          # Initialize ClickHouse
+          ./scripts/init-clickhouse.sh
 
       - name: Run integration tests
-        run: make test-integration
+        run: make test-integration-quick
         env:
+          PARSEDMARC_TEST_MODE: true
           CLICKHOUSE_URL: tcp://localhost:9000
           CLICKHOUSE_USERNAME: parsedmarc
-          CLICKHOUSE_PASSWORD: parsedmarc
-          CLICKHOUSE_DATABASE: parsedmarc
+          CLICKHOUSE_PASSWORD: test123
+          CLICKHOUSE_DATABASE: parsedmarc_test
+          KAFKA_BROKERS: localhost:9092
 
   security-scan:
     name: Security Scan
@@ -339,14 +392,14 @@ jobs:
           
           ### ✨ What's New
           
-          See the [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for detailed changes.
+          See the [CHANGELOG](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.version }}/CHANGELOG.md) for detailed changes.
           
           ### 📚 Documentation
           
-          - 📖 [Complete Documentation](https://github.com/${{ github.repository }}/tree/main/docs)
-          - ⚡ [Quick Start Guide](https://github.com/${{ github.repository }}/tree/main/docs/installation.md)
-          - ⚙️ [Configuration Guide](https://github.com/${{ github.repository }}/tree/main/docs/configuration.md)
-          - 💡 [Usage Examples](https://github.com/${{ github.repository }}/tree/main/docs/usage.md)
+          - 📖 [Complete Documentation](https://github.com/${{ github.repository }}tree/${{ steps.version.outputs.version }}/docs)
+          - ⚡ [Quick Start Guide](https://github.com/${{ github.repository }}tree/${{ steps.version.outputs.version }}/docs/installation.md)
+          - ⚙️ [Configuration Guide](https://github.com/${{ github.repository }}tree/${{ steps.version.outputs.version }}/docs/configuration.md)
+          - 💡 [Usage Examples](https://github.com/${{ github.repository }}tree/${{ steps.version.outputs.version }}/docs/usage.md)
           
           ---
           

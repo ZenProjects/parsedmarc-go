@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # ClickHouse Database
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    environment:
+      CLICKHOUSE_DB: parsedmarc_test
+      CLICKHOUSE_USER: parsedmarc
+      CLICKHOUSE_PASSWORD: test123
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - parsedmarc_test
+
+  # Apache Kafka
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - parsedmarc_test
+
+  # Zookeeper for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - parsedmarc_test
+
+  # Mailhog for SMTP testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"  # SMTP port
+      - "8025:8025"  # Web UI
+    networks:
+      - parsedmarc_test
+
+  # Dovecot for IMAP testing
+  dovecot:
+    image: dovecot/dovecot:latest
+    environment:
+      DOVECOT_HOSTNAME: test-dovecot
+      DOVECOT_POSTMASTER: admin@test.local
+    ports:
+      - "143:143"   # IMAP
+      - "993:993"   # IMAPS
+    volumes:
+      - ./test/fixtures/dovecot:/etc/dovecot/conf.d:ro
+      - ./test/fixtures/mail:/var/mail
+    networks:
+      - parsedmarc_test
+
+  # Test HTTP server (nginx with test files)
+  nginx-test:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./test/fixtures/http:/usr/share/nginx/html:ro
+    networks:
+      - parsedmarc_test
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - parsedmarc_test
+
+volumes:
+  clickhouse_data:
+  redis_data:
+
+networks:
+  parsedmarc_test:
+    driver: bridge

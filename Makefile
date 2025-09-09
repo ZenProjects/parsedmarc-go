@@ -90,6 +90,43 @@ test-samples: ## Verify all sample files can be parsed
 	@timeout 180s go run $(BINARY_PATH) -input "samples/aggregate/!large-example.com!1711897200!1711983600.xml" || echo "Large file test timed out or failed, continuing..."
 	@echo "Sample files test completed"
 
+test-services-up: ## Start test services with Docker Compose
+	@echo "Starting test services..."
+	@docker-compose -f docker-compose.test.yml up -d
+	@echo "Waiting for services to be ready..."
+	@sleep 30
+	@echo "Services started successfully"
+
+test-services-down: ## Stop test services
+	@echo "Stopping test services..."
+	@docker-compose -f docker-compose.test.yml down -v
+	@echo "Services stopped"
+
+test-integration: ## Run integration tests with all services
+	@echo "Running integration tests..."
+	@chmod +x scripts/test-integration.sh
+	@./scripts/test-integration.sh
+
+test-integration-quick: test-services-up ## Run integration tests (assumes services are running)
+	@echo "Running integration tests (quick mode)..."
+	@export PARSEDMARC_TEST_MODE=true && \
+	 export CLICKHOUSE_URL="tcp://localhost:9000" && \
+	 export CLICKHOUSE_USERNAME="parsedmarc" && \
+	 export CLICKHOUSE_PASSWORD="test123" && \
+	 export CLICKHOUSE_DATABASE="parsedmarc_test" && \
+	 export KAFKA_BROKERS="localhost:9092" && \
+	 go test -v -tags=integration ./test/integration/... -timeout=5m
+
+test-all: test test-integration ## Run all tests (unit + integration)
+
+test-clickhouse: ## Test ClickHouse integration only
+	@echo "Testing ClickHouse integration..."
+	@export PARSEDMARC_TEST_MODE=true && go test -v ./internal/storage/clickhouse/ -timeout=2m
+
+test-performance: ## Run performance benchmarks
+	@echo "Running performance benchmarks..."
+	@go test -v -bench=. -benchmem ./... -timeout=10m
+
 fmt: ## Format code
 	@echo "Formatting code..."
 	@go fmt ./...
