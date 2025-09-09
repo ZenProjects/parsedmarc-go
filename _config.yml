@@ -1,0 +1,8 @@
+title: ParseDMARC-go
+description: ParseDMARC-go is a CLI utility for parsing DMARC reports. When used with clickhouse and grafana, it works as a self-hosted open-source alternative to commercial DMARC report processing services such as Agari Brand Protection, Dmarcian, OnDMARC, ProofPoint Email Fraud Defense, and Valimail. 
+google_analytics: UA-3441258-7
+show_downloads: true
+theme: jekyll-theme-cayman
+
+gems:
+  - jekyll-mentions
