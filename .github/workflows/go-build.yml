@@ -211,7 +211,7 @@ jobs:
       - name: Run Gosec Security Scanner
         run: |
           # Install gosec
-          go install github.com/securecodewarriors/gosec/v2/cmd/gosec@latest
+          go install github.com/securecodewarrior/gosec/cmd/gosec@latest
           
           # Run gosec scan (continue on error to ensure SARIF file is created)
           gosec -fmt sarif -out gosec.sarif ./... || echo "Gosec completed with findings"
