@@ -201,31 +201,31 @@ parsedmarc-go implements the following email authentication and reporting standa
 ### 📖 Table of Contents
 
 #### 🚀 **Getting Started**
-- **[📋 Complete Documentation](docs/index.md)** - Overview and architecture
-- **[⚡ Installation](docs/installation.md)** - Installation and initial setup  
-- **[⚙️ Configuration](docs/configuration.md)** - Detailed configuration options
-- **[💡 Usage](docs/usage.md)** - Usage guide and examples
+- **[📋 Complete Documentation](https://zenprojects.github.io/parsedmarc-go/docs/index.md)** - Overview and architecture
+- **[⚡ Installation](https://zenprojects.github.io/parsedmarc-go/docs/installation.md)** - Installation and initial setup  
+- **[⚙️ Configuration](https://zenprojects.github.io/parsedmarc-go/docs/configuration.md)** - Detailed configuration options
+- **[💡 Usage](https://zenprojects.github.io/parsedmarc-go/docs/usage.md)** - Usage guide and examples
 
 #### 🗄️ **Database and Visualization**
-- **[🗃️ ClickHouse](docs/clickhouse.md)** - ClickHouse configuration and optimization
-- **[📊 Grafana](docs/grafana.md)** - Dashboards and visualizations
-- **[📈 Monitoring](docs/monitoring.md)** - Prometheus metrics and monitoring
+- **[🗃️ ClickHouse](https://zenprojects.github.io/parsedmarc-go/docs/clickhouse.md)** - ClickHouse configuration and optimization
+- **[📊 Grafana](https://zenprojects.github.io/parsedmarc-go/docs/grafana.md)** - Dashboards and visualizations
+- **[📈 Monitoring](https://zenprojects.github.io/parsedmarc-go/docs/monitoring.md)** - Prometheus metrics and monitoring
 
 #### 🔌 **API and Integrations**  
-- **[🌐 HTTP API](docs/api.md)** - HTTP endpoints and integrations
-- **[📧 DMARC Mailing Lists](docs/mailing-lists.md)** - Mailing list configuration
+- **[🌐 HTTP API](https://zenprojects.github.io/parsedmarc-go/docs/api.md)** - HTTP endpoints and integrations
+- **[📧 DMARC Mailing Lists](https://zenprojects.github.io/parsedmarc-go/docs/mailing-lists.md)** - Mailing list configuration
 
 #### 📖 **Technical References**
-- **[🔒 DMARC Specification](docs/dmarc.md)** - DMARC standards details
-- **[🤝 Contributing](docs/contributing.md)** - Project contribution guide
+- **[🔒 DMARC Specification](https://zenprojects.github.io/parsedmarc-go/docs/dmarc.md)** - DMARC standards details
+- **[🤝 Contributing](https://zenprojects.github.io/parsedmarc-go/docs/contributing.md)** - Project contribution guide
 
 ### 🔗 Quick Links
-- **[Quick Setup](docs/installation.md#quick-setup)** - Get started in 5 minutes
-- **[API Examples](docs/api.md#examples)** - Ready-to-use HTTP integrations
-- **[Grafana Dashboards](docs/grafana.md#dashboards)** - Pre-configured visualizations
-- **[Prometheus Metrics](docs/monitoring.md#metrics)** - Complete monitoring
+- **[Quick Setup](https://zenprojects.github.io/parsedmarc-go/docs/installation.md#quick-setup)** - Get started in 5 minutes
+- **[API Examples](https://zenprojects.github.io/parsedmarc-go/docs/api.md#examples)** - Ready-to-use HTTP integrations
+- **[Grafana Dashboards](https://zenprojects.github.io/parsedmarc-go/docs/grafana.md#dashboards)** - Pre-configured visualizations
+- **[Prometheus Metrics](https://zenprojects.github.io/parsedmarc-go/docs/monitoring.md#metrics)** - Complete monitoring
 
-> 💡 **Tip**: Start with the [complete documentation](docs/index.md) for an overview, then check the [installation guide](docs/installation.md) to get started quickly.
+> 💡 **Tip**: Start with the [complete documentation](https://zenprojects.github.io/parsedmarc-go/docs/index.md) for an overview, then check the [installation guide](https://zenprojects.github.io/parsedmarc-go/docs/installation.md) to get started quickly.
 
 ## License
 
