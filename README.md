@@ -217,7 +217,7 @@ parsedmarc-go implements the following email authentication and reporting standa
 
 #### 📖 **Technical References**
 - **[🔒 DMARC Specification](https://zenprojects.github.io/parsedmarc-go/docs/dmarc)** - DMARC standards details
-- **[🤝 Contributing](https://zenprojects.github.io/parsedmarc-go/docs/contributing)** - Project contribution guide
+- **[🤝 Contributing](docs/contributing.md)** - Project contribution guide
 
 ### 🔗 Quick Links
 - **[Quick Setup](https://zenprojects.github.io/parsedmarc-go/docs/installation#quick-setup)** - Get started in 5 minutes
